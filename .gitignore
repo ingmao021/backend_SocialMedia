@@ -33,6 +33,8 @@ build/
 .vscode/
 
 ### Secrets ###
+.env
 *.env
-src/main/resources/client_secret_*.json
+client_secret.json
+src/main/resources/client_secret*.json
 src/main/resources/application-prod.yaml
