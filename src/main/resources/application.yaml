@@ -44,16 +44,16 @@ spring:
             user-name-attribute: sub
 
 app:
-  frontend-url: ${FRONTEND_URL:https://social-video-ai.vercel.app}  # ← Cambia a tu dominio real
-  backend-url: ${BACKEND_URL:https://backend-socialmedia-ixsm.onrender.com}     # ← Cambia a tu dominio real
-  jwt-secret: ${JWT_SECRET:ZLXppxmK+naEHoVLGhgE77jXT4np/QtOf/MwJFszT00PNUzsvwDivgToHD4SevZx6foE8ZBZpcie5+iv51YnZw==} # ← Usa un secreto fuerte
-  jwt-expiration: ${JWT_EXPIRATION:86400000}                     # ← 24 horas
+  frontend-url: ${FRONTEND_URL:}  # ← Cambia a tu dominio real
+  backend-url: ${BACKEND_URL:}     # ← Cambia a tu dominio real
+  jwt-secret: ${JWT_SECRET:} # ← Usa un secreto fuerte
+  jwt-expiration: ${JWT_EXPIRATION:}                     # ← 24 horas
 
 google:
   token-verify-url: https://oauth2.googleapis.com/tokeninfo?id_token=
   generative-ai-api-key: ${GOOGLE_GENERATIVE_AI_API_KEY:}
-  video-api-timeout-seconds: ${GOOGLE_VIDEO_API_TIMEOUT:300}
+  video-api-timeout-seconds: ${GOOGLE_VIDEO_API_TIMEOUT}
 
 video-generation:
-  polling-interval-seconds: ${VIDEO_POLLING_INTERVAL:30}
+  polling-interval-seconds: ${VIDEO_POLLING_INTERVAL:}
 
