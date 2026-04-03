@@ -1,23 +1,9 @@
 package com.example.backend_socialmedia.youtube.infrastructure.google;
 
 import com.example.backend_socialmedia.shared.config.GoogleAiProperties;
-import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
-import com.google.api.client.http.HttpTransport;
-import com.google.api.client.json.JsonFactory;
-import com.google.api.client.json.gson.GsonFactory;
-import com.google.api.services.youtube.YouTube;
-import com.google.api.services.youtube.model.Video;
-import com.google.api.services.youtube.model.VideoFileDetails;
-import com.google.api.services.youtube.model.VideoProcessingDetails;
-import com.google.api.services.youtube.model.VideoStatus;
-import com.google.auth.oauth2.GoogleCredentials;
-import com.google.auth.oauth2.UserAccessToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-
-import java.io.IOException;
-import java.util.Collections;
 
 /**
  * Servicio para integración con YouTube Data API v3
@@ -27,37 +13,12 @@ import java.util.Collections;
 public class YouTubeDataApiService {
 
     private static final Logger logger = LoggerFactory.getLogger(YouTubeDataApiService.class);
-    private static final JsonFactory JSON_FACTORY = GsonFactory.getDefaultInstance();
     private static final String APPLICATION_NAME = "Social Media Backend";
 
     private final GoogleAiProperties googleAiProperties;
 
     public YouTubeDataApiService(GoogleAiProperties googleAiProperties) {
         this.googleAiProperties = googleAiProperties;
-    }
-
-    /**
-     * Obtiene una instancia de YouTube API client autenticada
-     * @param accessToken El token de acceso del usuario
-     * @return Instancia de YouTube API
-     */
-    private YouTube getYouTubeApiClient(String accessToken) throws IOException {
-        HttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
-        
-        // Crear credenciales con el access token del usuario
-        GoogleCredentials credentials = GoogleCredentials.create(
-                new UserAccessToken(accessToken)
-        );
-
-        return new YouTube.Builder(
-                httpTransport,
-                JSON_FACTORY,
-                credentials.createScoped(Collections.singleton(
-                        "https://www.googleapis.com/auth/youtube.upload"
-                ))
-        )
-                .setApplicationName(APPLICATION_NAME)
-                .build();
     }
 
     /**
@@ -79,9 +40,7 @@ public class YouTubeDataApiService {
         try {
             logger.info("Iniciando publicación de video en YouTube: {}", title);
 
-            YouTube youtubeService = getYouTubeApiClient(accessToken);
-
-            // TODO: Implementar lógica real de upload
+            // TODO: Implementar lógica real de upload usando REST API
             // Por ahora retornamos una respuesta mock
             String youtubeVideoId = "dQw4w9WgXcQ_" + System.currentTimeMillis();
             String youtubeUrl = "https://www.youtube.com/watch?v=" + youtubeVideoId;
@@ -116,9 +75,7 @@ public class YouTubeDataApiService {
         try {
             logger.info("Consultando estado del video en YouTube: {}", youtubeVideoId);
 
-            YouTube youtubeService = getYouTubeApiClient(accessToken);
-
-            // TODO: Implementar lógica real para obtener estado
+            // TODO: Implementar lógica real para obtener estado usando REST API
             // Por ahora retornamos una respuesta mock
             return new YouTubePublishResponse(
                     youtubeVideoId,
@@ -148,9 +105,7 @@ public class YouTubeDataApiService {
         try {
             logger.info("Eliminando video de YouTube: {}", youtubeVideoId);
 
-            YouTube youtubeService = getYouTubeApiClient(accessToken);
-
-            // TODO: Implementar lógica real de eliminación
+            // TODO: Implementar lógica real de eliminación usando REST API
             logger.info("Video eliminado exitosamente de YouTube: {}", youtubeVideoId);
             return true;
 

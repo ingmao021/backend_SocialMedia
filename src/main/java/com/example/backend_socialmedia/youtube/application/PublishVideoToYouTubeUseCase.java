@@ -53,10 +53,12 @@ public class PublishVideoToYouTubeUseCase {
             }
 
             // 2. Obtener el access token del usuario
-            String accessToken = oAuthTokenStore.getAccessToken(userId);
-            if (accessToken == null || accessToken.isEmpty()) {
+            Optional<String> accessTokenOpt = oAuthTokenStore.getAccessToken(userId.toString());
+            if (accessTokenOpt.isEmpty()) {
                 throw new RuntimeException("No se encontró token de acceso para el usuario. Se requiere autenticación con Google.");
             }
+
+            String accessToken = accessTokenOpt.get();
 
             // 3. Validar el token
             if (!youtubeDataApiService.validateAccessToken(accessToken)) {

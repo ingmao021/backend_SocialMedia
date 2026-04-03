@@ -119,18 +119,25 @@
             <version>2.21.1</version>
         </dependency>
 
-        <!-- Google YouTube Data API v3 -->
-        <dependency>
+        <!-- Google YouTube Data API v3 - usando google-http-client en su lugar -->
+        <!-- <dependency>
             <groupId>com.google.apis</groupId>
             <artifactId>google-api-services-youtube</artifactId>
-            <version>v3-rev20240917-2.0.0</version>
-        </dependency>
+            <version>v3-rev20210101-1.32.1</version>
+        </dependency> -->
 
         <!-- Google HTTP Client -->
         <dependency>
             <groupId>com.google.http-client</groupId>
             <artifactId>google-http-client-gson</artifactId>
             <version>1.43.3</version>
+        </dependency>
+
+        <!-- Google Auth Library -->
+        <dependency>
+            <groupId>com.google.auth</groupId>
+            <artifactId>google-auth-library-oauth2-http</artifactId>
+            <version>1.14.0</version>
         </dependency>
 
         <!-- Lombok -->
