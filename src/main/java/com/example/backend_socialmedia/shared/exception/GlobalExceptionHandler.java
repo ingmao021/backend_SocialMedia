@@ -39,10 +39,21 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntime(
             RuntimeException ex) {
+
+        // Si es usuario no encontrado, devolver 404
+        if (ex.getMessage() != null && (ex.getMessage().contains("Usuario no encontrado") ||
+            ex.getMessage().contains("No encontrado"))) {
+            log.warn("Usuario no encontrado: {}", ex.getMessage());
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(errorBody("USUARIO_NO_ENCONTRADO", ex.getMessage()));
+        }
+
+        // Otros errores → 500
         log.error("Error inesperado: {}", ex.getMessage(), ex);
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(errorBody("ERROR_INTERNO", "Ocurrió un error inesperado"));
+                .body(errorBody("ERROR_INTERNO", "Ocurrió un error inesperado: " + ex.getMessage()));
     }
 
     // Método auxiliar para construir respuesta de error uniforme

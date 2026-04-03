@@ -69,4 +69,41 @@ public class AuthController {
                 "message", "Backend conectado correctamente"
         ));
     }
+
+    // Debug: Verificar token sin extraer usuario
+    @GetMapping("/debug/token")
+    public ResponseEntity<Map<String, Object>> debugToken(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "error", "No autenticado",
+                    "detail", "No se proporciona header Authorization con formato Bearer"
+            ));
+        }
+
+        String token = authHeader.substring(7);
+
+        try {
+            if (!jwtUtils.validateToken(token)) {
+                return ResponseEntity.status(401).body(Map.of(
+                        "error", "Token inválido",
+                        "detail", "El token no pasó validación"
+                ));
+            }
+
+            Long userId = jwtUtils.getUserIdFromToken(token);
+            String email = jwtUtils.getEmailFromToken(token);
+
+            return ResponseEntity.ok(Map.of(
+                    "valid", true,
+                    "userId", userId,
+                    "email", email,
+                    "message", "Token válido, pero puede que el usuario no esté en la BD"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "error", "Error al procesar token",
+                    "detail", e.getMessage()
+            ));
+        }
+    }
 }
