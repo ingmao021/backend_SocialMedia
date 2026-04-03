@@ -3,107 +3,83 @@ package com.example.backend_socialmedia.video.infrastructure.google;
 import com.example.backend_socialmedia.shared.config.GoogleAiProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
-/**
- * Servicio para integración con Google Generative AI (Gemini Video API)
- * Encapsula la lógica de comunicación con Google AI Studio
- */
+import java.util.HashMap;
+import java.util.Map;
+
 @Service
 public class GoogleGenerativeAiService {
 
     private static final Logger logger = LoggerFactory.getLogger(GoogleGenerativeAiService.class);
 
+    private static final String HF_API_URL = "https://api-inference.huggingface.co/models/damo-vilab/text-to-video-ms-1.7b";
+
+    @Value("${HUGGINGFACE_API_KEY}")
+    private String huggingFaceApiKey;
+
     private final GoogleAiProperties googleAiProperties;
+    private final RestTemplate restTemplate;
 
     public GoogleGenerativeAiService(GoogleAiProperties googleAiProperties) {
         this.googleAiProperties = googleAiProperties;
+        this.restTemplate = new RestTemplate();
     }
 
-    /**
-     * Genera un video usando el API de Google Generative AI
-     * @param prompt El prompt para generar el video
-     * @return Response con el jobId y estado
-     */
     public GoogleVideoGenerationResponse generateVideo(String prompt) {
         try {
-            logger.info("Iniciando generación de video con prompt: {}", prompt);
+            logger.info("Generando video con Hugging Face. Prompt: {}", prompt);
 
-            // TODO: Implementar llamada real a Google Generative AI API
-            // Por ahora, retornamos un mock response
-            String jobId = "job_" + System.currentTimeMillis();
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + huggingFaceApiKey);
+            headers.setContentType(MediaType.APPLICATION_JSON);
 
-            logger.info("Video generation job creado con ID: {}", jobId);
+            Map<String, Object> body = new HashMap<>();
+            body.put("inputs", prompt);
 
-            return new GoogleVideoGenerationResponse(
-                    jobId,
-                    "PROCESSING",
-                    null,
-                    null
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+
+            ResponseEntity<byte[]> response = restTemplate.exchange(
+                    HF_API_URL,
+                    HttpMethod.POST,
+                    entity,
+                    byte[].class
             );
 
-        } catch (Exception e) {
-            logger.error("Error al generar video con Google AI", e);
-            return new GoogleVideoGenerationResponse(
-                    null,
-                    "ERROR",
-                    null,
-                    e.getMessage()
-            );
-        }
-    }
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                // Hugging Face devuelve el video como bytes
+                // Convertimos a base64 para guardarlo como URL de datos
+                String base64Video = java.util.Base64.getEncoder().encodeToString(response.getBody());
+                String videoDataUrl = "data:video/mp4;base64," + base64Video;
 
-    /**
-     * Obtiene el estado de un video en generación
-     * @param jobId El ID del trabajo en Google
-     * @return Response con el estado actual
-     */
-    public GoogleVideoGenerationResponse getJobStatus(String jobId) {
-        try {
-            logger.info("Consultando estado del trabajo: {}", jobId);
+                String jobId = "hf_job_" + System.currentTimeMillis();
+                logger.info("Video generado exitosamente. Job ID: {}", jobId);
 
-            // TODO: Implementar llamada real a Google API para obtener estado
-            // Por ahora, retornamos un mock response
-
-            return new GoogleVideoGenerationResponse(
-                    jobId,
-                    "PROCESSING",
-                    null,
-                    null
-            );
-
-        } catch (Exception e) {
-            logger.error("Error al obtener estado del trabajo: {}", jobId, e);
-            return new GoogleVideoGenerationResponse(
-                    jobId,
-                    "ERROR",
-                    null,
-                    e.getMessage()
-            );
-        }
-    }
-
-    /**
-     * Valida si la API key es válida
-     * @return true si la API key es válida
-     */
-    public boolean validateApiKey() {
-        try {
-            String apiKey = googleAiProperties.getGenerativeAiApiKey();
-
-            if (apiKey == null || apiKey.trim().isEmpty()) {
-                logger.warn("Google Generative AI API key no está configurado");
-                return false;
+                return new GoogleVideoGenerationResponse(
+                        jobId,
+                        "COMPLETED",
+                        videoDataUrl,
+                        null
+                );
+            } else {
+                throw new RuntimeException("Respuesta inesperada de Hugging Face: " + response.getStatusCode());
             }
 
-            logger.info("API key validado correctamente");
-            return true;
-
         } catch (Exception e) {
-            logger.error("Error al validar API key", e);
-            return false;
+            logger.error("Error al generar video con Hugging Face", e);
+            return new GoogleVideoGenerationResponse(null, "ERROR", null, e.getMessage());
         }
     }
+
+    public GoogleVideoGenerationResponse getJobStatus(String jobId) {
+        // Con Hugging Face la generación es síncrona, siempre completed
+        return new GoogleVideoGenerationResponse(jobId, "COMPLETED", null, null);
+    }
+
+    public boolean validateApiKey() {
+        return huggingFaceApiKey != null && !huggingFaceApiKey.trim().isEmpty();
+    }
 }
-
-

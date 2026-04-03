@@ -58,9 +58,11 @@ video-generation:
   polling-interval-seconds: ${VIDEO_POLLING_INTERVAL:}
 
 youtube:
-  api-timeout-seconds: ${YOUTUBE_API_TIMEOUT:300}
-  max-retries: ${YOUTUBE_MAX_RETRIES:3}
+  api-timeout-seconds: ${YOUTUBE_API_TIMEOUT:}
+  max-retries: ${YOUTUBE_MAX_RETRIES:}
   rate-limit:
-    requests-per-minute: ${YOUTUBE_RATE_LIMIT_RPM:100}
-    quota-units-per-day: ${YOUTUBE_QUOTA_UNITS_DAY:10000}
+    requests-per-minute: ${YOUTUBE_RATE_LIMIT_RPM:}
+    quota-units-per-day: ${YOUTUBE_QUOTA_UNITS_DAY:}
 
+huggingface:
+  api-key: ${HUGGINGFACE_API_KEY:}
