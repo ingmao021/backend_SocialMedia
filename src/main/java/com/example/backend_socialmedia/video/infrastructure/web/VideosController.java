@@ -7,6 +7,9 @@ import com.example.backend_socialmedia.video.application.DeleteVideoUseCase;
 import com.example.backend_socialmedia.video.domain.GenerateVideoRequest;
 import com.example.backend_socialmedia.video.domain.Video;
 import com.example.backend_socialmedia.video.domain.VideoResponse;
+import com.example.backend_socialmedia.shared.utils.JwtUtils;
+import com.example.backend_socialmedia.shared.config.CustomUserDetails;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -32,22 +35,24 @@ public class VideosController {
     private final GetVideoUseCase getVideoUseCase;
     private final ListVideosUseCase listVideosUseCase;
     private final DeleteVideoUseCase deleteVideoUseCase;
+    private final JwtUtils jwtUtils;
 
     public VideosController(GenerateVideoUseCase generateVideoUseCase,
                            GetVideoUseCase getVideoUseCase,
                            ListVideosUseCase listVideosUseCase,
-                           DeleteVideoUseCase deleteVideoUseCase) {
+                           DeleteVideoUseCase deleteVideoUseCase,
+                           JwtUtils jwtUtils) {
         this.generateVideoUseCase = generateVideoUseCase;
         this.getVideoUseCase = getVideoUseCase;
         this.listVideosUseCase = listVideosUseCase;
         this.deleteVideoUseCase = deleteVideoUseCase;
+        this.jwtUtils = jwtUtils;
     }
 
-    /**
-     * POST /api/videos/generate - Genera un nuevo video
-     */
     @PostMapping("/generate")
-    public ResponseEntity<VideoResponse> generateVideo(@RequestBody GenerateVideoRequest request) {
+    public ResponseEntity<VideoResponse> generateVideo(
+            @RequestBody GenerateVideoRequest request,
+            HttpServletRequest httpRequest) {
         logger.info("Solicitud para generar video");
 
         try {
@@ -64,7 +69,9 @@ public class VideosController {
      * GET /api/videos/{id} - Obtiene los detalles de un video
      */
     @GetMapping("/{id}")
-    public ResponseEntity<VideoResponse> getVideo(@PathVariable Long id) {
+    public ResponseEntity<VideoResponse> getVideo(
+            @PathVariable Long id,
+            HttpServletRequest httpRequest) {
         logger.info("Obteniendo video: {}", id);
 
         try {
@@ -81,7 +88,7 @@ public class VideosController {
      * GET /api/videos - Lista todos los videos del usuario autenticado
      */
     @GetMapping
-    public ResponseEntity<List<VideoResponse>> listVideos() {
+    public ResponseEntity<List<VideoResponse>> listVideos(HttpServletRequest httpRequest) {
         logger.info("Listando videos del usuario");
 
         try {
@@ -101,7 +108,9 @@ public class VideosController {
      * DELETE /api/videos/{id} - Elimina un video
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteVideo(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteVideo(
+            @PathVariable Long id,
+            HttpServletRequest httpRequest) {
         logger.info("Eliminando video: {}", id);
 
         try {
@@ -115,23 +124,13 @@ public class VideosController {
     }
 
     /**
-     * Obtiene el ID del usuario desde el contexto de seguridad
+     * Obtiene el ID del usuario desde el SecurityContext
      */
     private Long getUserIdFromAuth() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-
-        if (auth == null || !auth.isAuthenticated()) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof CustomUserDetails)) {
             throw new RuntimeException("Usuario no autenticado");
         }
-
-        // El nombre del principal debería ser el userId (convertido a String)
-        try {
-            String userId = auth.getName();
-            return Long.parseLong(userId);
-        } catch (NumberFormatException e) {
-            logger.error("No se puede convertir userId a Long: {}", auth.getName());
-            throw new RuntimeException("ID de usuario inválido");
-        }
+        return ((CustomUserDetails) authentication.getPrincipal()).getUserId();
     }
 }
-

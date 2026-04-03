@@ -58,7 +58,7 @@ public class DeleteYouTubeUploadUseCase {
         // Si está publicada, intentar eliminarla de YouTube
         if (youtubeUpload.getYoutubeVideoId() != null) {
             try {
-                Optional<String> accessTokenOpt = oAuthTokenStore.getAccessToken(userId.toString());
+                Optional<String> accessTokenOpt = oAuthTokenStore.getAccessToken(userId);
                 if (accessTokenOpt.isPresent()) {
                     String accessToken = accessTokenOpt.get();
                     boolean deleted = youtubeDataApiService.deleteVideo(accessToken, youtubeUpload.getYoutubeVideoId());
@@ -78,4 +78,3 @@ public class DeleteYouTubeUploadUseCase {
         logger.info("Publicación eliminada exitosamente: {}", uploadId);
     }
 }
-

@@ -22,12 +22,12 @@ public class OAuthTokenStoreImpl implements OAuthTokenStore {
 
     @Override
     @Transactional
-    public void save(String userId, String accessToken,
+    public void save(Long userId, String accessToken,
                      String refreshToken, long expiresInSeconds) {
-        OAuthTokenEntity entity = repo.findByUserId(userId)
+        OAuthTokenEntity entity = repo.findByUserId(userId.toString())
                 .orElse(new OAuthTokenEntity());
 
-        entity.setUserId(userId);
+        entity.setUserId(userId.toString());
         entity.setAccessToken(accessToken);
 
         if (refreshToken != null && !refreshToken.isBlank()) {
@@ -43,24 +43,24 @@ public class OAuthTokenStoreImpl implements OAuthTokenStore {
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<String> getRefreshToken(String userId) {
-        return repo.findByUserId(userId)
+    public Optional<String> getRefreshToken(Long userId) {
+        return repo.findByUserId(userId.toString())
                 .map(OAuthTokenEntity::getRefreshToken);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<String> getAccessToken(String userId) {
-        return repo.findByUserId(userId)
+    public Optional<String> getAccessToken(Long userId) {
+        return repo.findByUserId(userId.toString())
                 .map(OAuthTokenEntity::getAccessToken);
     }
 
     @Override
     @Transactional
-    public void updateAccessToken(String userId,
+    public void updateAccessToken(Long userId,
                                   String newAccessToken,
                                   long expiresInSeconds) {
-        repo.findByUserId(userId).ifPresentOrElse(
+        repo.findByUserId(userId.toString()).ifPresentOrElse(
                 entity -> {
                     entity.setAccessToken(newAccessToken);
                     entity.setExpiresAt(

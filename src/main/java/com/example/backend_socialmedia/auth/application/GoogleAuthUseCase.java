@@ -45,7 +45,7 @@ public class GoogleAuthUseCase {
         User user = execute(oAuth2User);
 
         tokenStore.save(
-                String.valueOf(user.getId()),
+                user.getId(),
                 accessToken,
                 refreshToken,
                 expiresInSeconds

@@ -37,6 +37,14 @@ public class GenerateVideoUseCase {
     public Video execute(Long userId, GenerateVideoRequest request) {
         logger.info("Iniciando generación de video para usuario: {}", userId);
 
+        // Validar que el prompt no esté vacío
+        if (request.getPrompt() == null || request.getPrompt().trim().isEmpty()) {
+            throw new IllegalArgumentException("El prompt no puede estar vacío");
+        }
+        if (request.getPrompt().length() > 1000) {
+            throw new IllegalArgumentException("El prompt es demasiado largo (máximo 1000 caracteres)");
+        }
+
         // Validar que el API key sea válido
         if (!googleAiService.validateApiKey()) {
             throw new RuntimeException("Google Generative AI no está configurado correctamente");
