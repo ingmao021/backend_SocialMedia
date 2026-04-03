@@ -15,7 +15,7 @@ import java.util.Map;
 public class GoogleGenerativeAiService {
 
     private static final Logger logger = LoggerFactory.getLogger(GoogleGenerativeAiService.class);
-    private static final String REPLICATE_API_URL = "https://api.replicate.com/v1/models/wan-ai/wan2.1-t2v-turbo/predictions";
+    private static final String REPLICATE_API_URL = "https://api.replicate.com/v1/models/wan-video/wan-2.7-t2v/predictions";
 
     @Value("${REPLICATE_API_KEY}")
     private String replicateApiKey;
@@ -35,12 +35,13 @@ public class GoogleGenerativeAiService {
             HttpHeaders headers = new HttpHeaders();
             headers.set("Authorization", "Bearer " + replicateApiKey);
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Prefer", "wait");
 
             Map<String, Object> input = new HashMap<>();
             input.put("prompt", prompt);
-            input.put("num_frames", 16);
-            input.put("fps", 8);
+            input.put("duration", 5);
+            input.put("resolution", "720p");
+            input.put("aspect_ratio", "16:9");
+            input.put("enable_prompt_expansion", false);
 
             Map<String, Object> body = new HashMap<>();
             body.put("input", input);
@@ -73,7 +74,8 @@ public class GoogleGenerativeAiService {
                     videoUrl = (String) output;
                 }
 
-                String mappedStatus = "COMPLETED".equals(status) ? "COMPLETED" : "PROCESSING";
+                String mappedStatus = "succeeded".equals(status) ? "COMPLETED" :
+                        "failed".equals(status) ? "ERROR" : "PROCESSING";
 
                 return new GoogleVideoGenerationResponse(jobId, mappedStatus, videoUrl, null);
             }
