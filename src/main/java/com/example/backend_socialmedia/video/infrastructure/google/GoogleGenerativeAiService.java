@@ -1,8 +1,8 @@
 package com.example.backend_socialmedia.video.infrastructure.google;
 
+import com.example.backend_socialmedia.shared.config.GoogleAiProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
@@ -14,11 +14,11 @@ public class GoogleGenerativeAiService {
 
     private static final Logger logger = LoggerFactory.getLogger(GoogleGenerativeAiService.class);
 
-    @Value("${google.generative-ai-api-key:}")
-    private String apiKey;
+    private final GoogleAiProperties googleAiProperties;
 
-    @Value("${google.video-api-timeout-seconds:300}")
-    private int timeoutSeconds;
+    public GoogleGenerativeAiService(GoogleAiProperties googleAiProperties) {
+        this.googleAiProperties = googleAiProperties;
+    }
 
     /**
      * Genera un video usando el API de Google Generative AI
@@ -27,17 +27,6 @@ public class GoogleGenerativeAiService {
      */
     public GoogleVideoGenerationResponse generateVideo(String prompt) {
         try {
-            // Validar que el API key esté configurado
-            if (apiKey == null || apiKey.trim().isEmpty()) {
-                logger.error("Google Generative AI API key no está configurado");
-                return new GoogleVideoGenerationResponse(
-                        null,
-                        "ERROR",
-                        null,
-                        "API key no configurado"
-                );
-            }
-
             logger.info("Iniciando generación de video con prompt: {}", prompt);
 
             // TODO: Implementar llamada real a Google Generative AI API
@@ -100,6 +89,8 @@ public class GoogleGenerativeAiService {
      */
     public boolean validateApiKey() {
         try {
+            String apiKey = googleAiProperties.getGenerativeAiApiKey();
+
             if (apiKey == null || apiKey.trim().isEmpty()) {
                 logger.warn("Google Generative AI API key no está configurado");
                 return false;
@@ -114,4 +105,5 @@ public class GoogleGenerativeAiService {
         }
     }
 }
+
 
