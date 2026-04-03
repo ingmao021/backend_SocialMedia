@@ -51,4 +51,9 @@ app:
 
 google:
   token-verify-url: https://oauth2.googleapis.com/tokeninfo?id_token=
+  generative-ai-api-key: ${GOOGLE_GENERATIVE_AI_API_KEY:}
+  video-api-timeout-seconds: ${GOOGLE_VIDEO_API_TIMEOUT:300}
+
+video-generation:
+  polling-interval-seconds: ${VIDEO_POLLING_INTERVAL:30}
 
