@@ -16,9 +16,7 @@ public class GoogleGenerativeAiService {
 
     private static final Logger logger = LoggerFactory.getLogger(GoogleGenerativeAiService.class);
 
-    private static final String HF_API_URL = "https://api-inference.huggingface.co/models/damo-vilab/text-to-video-ms-1.7b";
-
-    @Value("${HUGGINGFACE_API_KEY}")
+    private static final String HF_API_URL = "https://router.huggingface.co/hf-inference/models/damo-vilab/text-to-video-ms-1.7b";    @Value("${HUGGINGFACE_API_KEY}")
     private String huggingFaceApiKey;
 
     private final GoogleAiProperties googleAiProperties;
