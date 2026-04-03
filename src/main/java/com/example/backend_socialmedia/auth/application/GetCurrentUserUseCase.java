@@ -18,4 +18,9 @@ public class GetCurrentUserUseCase {
         return userRepository.findByGoogleId(googleId)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
     }
+
+    public User execute(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+    }
 }

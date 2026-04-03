@@ -14,8 +14,8 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update                # ← cambia de update a validate
-    show-sql: true
+      ddl-auto: validate                # ← cambia de update a validate en producción
+    show-sql: false                    # ← desactiva en producción
     open-in-view: false
     properties:
       hibernate:
@@ -44,9 +44,11 @@ spring:
             user-name-attribute: sub
 
 app:
-  frontend-url: ${FRONTEND_URL:http://localhost:5173}
-  backend-url: ${BACKEND_URL:http://localhost:8080}
-  jwt-secret: ${JWT_SECRET}
+  frontend-url: ${FRONTEND_URL:https://social-video-ai.vercel.app/}  # ← Cambia a tu dominio real
+  backend-url: ${BACKEND_URL:https://backend-socialmedia-ixsm.onrender.com}     # ← Cambia a tu dominio real
+  jwt-secret: ${JWT_SECRET:ZLXppxmK+naEHoVLGhgE77jXT4np/QtOf/MwJFszT00PNUzsvwDivgToHD4SevZx6foE8ZBZpcie5+iv51YnZw==} # ← Usa un secreto fuerte
+  jwt-expiration: ${JWT_EXPIRATION:86400000}                     # ← 24 horas
 
 google:
   token-verify-url: https://oauth2.googleapis.com/tokeninfo?id_token=
+

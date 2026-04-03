@@ -1,6 +1,8 @@
 package com.example.backend_socialmedia.auth.infrastructure.web;
 
 import com.example.backend_socialmedia.auth.application.GoogleAuthUseCase;
+import com.example.backend_socialmedia.shared.utils.JwtUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.core.Authentication;
@@ -14,6 +16,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
+import java.util.Map;
 
 @Component
 public class OAuth2SuccessHandler
@@ -21,14 +25,20 @@ public class OAuth2SuccessHandler
 
     private final GoogleAuthUseCase googleAuthUseCase;
     private final OAuth2AuthorizedClientService clientService;
+    private final JwtUtils jwtUtils;
+    private final ObjectMapper objectMapper;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
 
     public OAuth2SuccessHandler(GoogleAuthUseCase googleAuthUseCase,
-                                OAuth2AuthorizedClientService clientService) {
+                                OAuth2AuthorizedClientService clientService,
+                                JwtUtils jwtUtils,
+                                ObjectMapper objectMapper) {
         this.googleAuthUseCase = googleAuthUseCase;
         this.clientService     = clientService;
+        this.jwtUtils          = jwtUtils;
+        this.objectMapper      = objectMapper;
     }
 
     @Override
@@ -56,16 +66,29 @@ public class OAuth2SuccessHandler
                 : 3600L;
 
         // Llama al caso de uso con los tokens
-        googleAuthUseCase.executeWithTokens(
+        var user = googleAuthUseCase.executeWithTokens(
                 token.getPrincipal(),
                 accessToken.getTokenValue(),
                 refreshToken != null ? refreshToken.getTokenValue() : null,
                 expiresIn
         );
 
-        // Redirige al frontend después del login exitoso
-        getRedirectStrategy().sendRedirect(
-                request, response, frontendUrl + "/chat"
-        );
+        // Genera JWT
+        String jwt = jwtUtils.generateToken(user.getId(), user.getEmail());
+
+        // Responde con JSON en lugar de redirigir
+        response.setContentType("application/json");
+        response.setStatus(HttpServletResponse.SC_OK);
+
+        Map<String, Object> responseBody = new HashMap<>();
+        responseBody.put("token", jwt);
+        responseBody.put("user", Map.of(
+                "id", user.getId(),
+                "name", user.getName(),
+                "email", user.getEmail(),
+                "picture", user.getPicture()
+        ));
+
+        response.getWriter().write(objectMapper.writeValueAsString(responseBody));
     }
 }

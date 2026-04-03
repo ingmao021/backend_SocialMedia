@@ -38,4 +38,4 @@ ENV JAVA_OPTS="-Xms256m -Xmx512m"
 ENV PORT=8080
 
 # Comando de inicio
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar --server.port=${PORT:-8080}"]
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar --server.port=${PORT:-8080} --spring.profiles.active=prod"]

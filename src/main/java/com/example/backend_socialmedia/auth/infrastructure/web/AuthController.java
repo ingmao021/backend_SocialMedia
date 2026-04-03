@@ -3,6 +3,7 @@ package com.example.backend_socialmedia.auth.infrastructure.web;
 import com.example.backend_socialmedia.auth.application.GoogleAuthUseCase;
 import com.example.backend_socialmedia.auth.application.GetCurrentUserUseCase;
 import com.example.backend_socialmedia.auth.domain.User;
+import com.example.backend_socialmedia.shared.utils.JwtUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -16,11 +17,14 @@ import java.util.Map;
 public class AuthController {
     private final GoogleAuthUseCase googleAuthUseCase;
     private final GetCurrentUserUseCase getCurrentUserUseCase;
+    private final JwtUtils jwtUtils;
 
     public AuthController(GoogleAuthUseCase googleAuthUseCase,
-                          GetCurrentUserUseCase getCurrentUserUseCase) {
+                          GetCurrentUserUseCase getCurrentUserUseCase,
+                          JwtUtils jwtUtils) {
         this.googleAuthUseCase = googleAuthUseCase;
         this.getCurrentUserUseCase = getCurrentUserUseCase;
+        this.jwtUtils = jwtUtils;
     }
 
     // Devuelve la URL para que el frontend abra el login de Google
@@ -36,11 +40,19 @@ public class AuthController {
 
     // Después del redirect de Google, devuelve el usuario autenticado
     @GetMapping("/me")
-    public ResponseEntity<?> getCurrentUser(@AuthenticationPrincipal OAuth2User principal) {
-        if (principal == null) {
+    public ResponseEntity<?> getCurrentUser(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             return ResponseEntity.status(401).body(Map.of("error", "No autenticado"));
         }
-        User user = getCurrentUserUseCase.execute(principal);
+
+        String token = authHeader.substring(7);
+        if (!jwtUtils.validateToken(token)) {
+            return ResponseEntity.status(401).body(Map.of("error", "Token inválido"));
+        }
+
+        Long userId = jwtUtils.getUserIdFromToken(token);
+        User user = getCurrentUserUseCase.execute(userId);
+
         return ResponseEntity.ok(Map.of(
                 "id",      user.getId(),
                 "name",    user.getName(),

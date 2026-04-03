@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 @Configuration
@@ -19,6 +20,7 @@ public class SecurityConfig {
     private final CorsConfigurationSource corsConfigurationSource;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
     private final CustomAuthorizationRequestResolver authorizationRequestResolver;
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
@@ -26,11 +28,13 @@ public class SecurityConfig {
     public SecurityConfig(GoogleAuthUseCase googleAuthUseCase,
                           CorsConfigurationSource corsConfigurationSource,
                           OAuth2SuccessHandler oAuth2SuccessHandler,
-                          CustomAuthorizationRequestResolver authorizationRequestResolver) {
+                          CustomAuthorizationRequestResolver authorizationRequestResolver,
+                          JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.googleAuthUseCase = googleAuthUseCase;
         this.corsConfigurationSource = corsConfigurationSource;
         this.oAuth2SuccessHandler = oAuth2SuccessHandler;
         this.authorizationRequestResolver = authorizationRequestResolver;
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
     @Bean
@@ -58,7 +62,8 @@ public class SecurityConfig {
                         .authorizationEndpoint(endpoint -> endpoint
                                 .authorizationRequestResolver(authorizationRequestResolver)
                         )
-                );
+                )
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
