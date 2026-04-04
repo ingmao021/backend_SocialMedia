@@ -31,6 +31,12 @@ public class GoogleGenerativeAiService {
     @Value("${GOOGLE_CLOUD_PRIVATE_KEY}")
     private String privateKey;
 
+    @Value("${GOOGLE_CLOUD_PRIVATE_KEY_ID}")
+    private String privateKeyId;
+
+    @Value("${GOOGLE_CLOUD_CLIENT_ID}")
+
+    private String clientId;
     private final GoogleAiProperties googleAiProperties;
     private final RestTemplate restTemplate;
 
@@ -41,14 +47,16 @@ public class GoogleGenerativeAiService {
 
     private String getAccessToken() throws Exception {
         String json = String.format("""
-                {
-                  "type": "service_account",
-                  "project_id": "%s",
-                  "client_email": "%s",
-                  "private_key": "%s",
-                  "token_uri": "https://oauth2.googleapis.com/token"
-                }
-                """, projectId, clientEmail, privateKey.replace("\\n", "\n"));
+            {
+              "type": "service_account",
+              "project_id": "%s",
+              "private_key_id": "%s",
+              "client_email": "%s",
+              "client_id": "%s",
+              "private_key": "%s",
+              "token_uri": "https://oauth2.googleapis.com/token"
+            }
+            """, projectId, privateKeyId, clientEmail, clientId, privateKey.replace("\\n", "\n"));
 
         GoogleCredentials credentials = ServiceAccountCredentials
                 .fromStream(new ByteArrayInputStream(json.getBytes(StandardCharsets.UTF_8)))
