@@ -1,16 +1,14 @@
 package com.example.backend_socialmedia.shared.config;
 
-import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 /**
- * Configuración de escaneo de entidades JPA
- *
- * @EnableJpaRepositories está en BackendSocialMediaApplication para evitar
- * conflictos con la auto-configuración de Spring Boot
+ * Configuración de JPA
+ * Utiliza EnableJpaRepositories de forma centralizada para evitar conflictos
  */
 @Configuration
-@EntityScan(
+@EnableJpaRepositories(
         basePackages = {
                 "com.example.backend_socialmedia.auth.infrastructure.persistence",
                 "com.example.backend_socialmedia.shared.persistence",

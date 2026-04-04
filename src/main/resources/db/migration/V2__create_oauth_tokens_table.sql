@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS oauth_tokens (
+CREATE TABLE oauth_tokens (
     id            VARCHAR(36)   PRIMARY KEY,
     user_id       BIGINT        NOT NULL UNIQUE,
     access_token  VARCHAR(2048) NOT NULL,
