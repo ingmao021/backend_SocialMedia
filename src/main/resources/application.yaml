@@ -3,23 +3,24 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:backend_db}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
   flyway:
     enabled: true
-    locations: classpath:db/migration   # Ruta correcta con slash
+    locations: classpath:db/migration
     baseline-on-migrate: true
 
   jpa:
     hibernate:
-      ddl-auto: none                # Flyway gestiona el schema, no Hibernate
-    show-sql: false                    # ← desactiva en producción
+      ddl-auto: none
+    show-sql: false
     open-in-view: false
     properties:
       hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
 
   security:
     oauth2:
@@ -44,25 +45,22 @@ spring:
             user-name-attribute: sub
 
 app:
-  frontend-url: ${FRONTEND_URL:}  # ← Cambia a tu dominio real
-  backend-url: ${BACKEND_URL:}     # ← Cambia a tu dominio real
-  jwt-secret: ${JWT_SECRET:} # ← Usa un secreto fuerte
-  jwt-expiration: ${JWT_EXPIRATION:}                     # ← 24 horas
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
+  backend-url: ${BACKEND_URL:http://localhost:8080}
+  jwt-secret: ${JWT_SECRET}
+  jwt-expiration: ${JWT_EXPIRATION:86400000}
 
 google:
   token-verify-url: https://oauth2.googleapis.com/tokeninfo?id_token=
-  generative-ai-api-key: ${GOOGLE_GENERATIVE_AI_API_KEY:}
-  video-api-timeout-seconds: ${GOOGLE_VIDEO_API_TIMEOUT}
+  generative-ai-api-key: ${GOOGLE_GENERATIVE_AI_API_KEY}
+  video-api-timeout-seconds: ${GOOGLE_VIDEO_API_TIMEOUT:300}
 
 video-generation:
-  polling-interval-seconds: ${VIDEO_POLLING_INTERVAL:}
+  polling-interval-seconds: ${VIDEO_POLLING_INTERVAL:30}
 
 youtube:
-  api-timeout-seconds: ${YOUTUBE_API_TIMEOUT:}
-  max-retries: ${YOUTUBE_MAX_RETRIES:}
+  api-timeout-seconds: ${YOUTUBE_API_TIMEOUT:300}
+  max-retries: ${YOUTUBE_MAX_RETRIES:3}
   rate-limit:
-    requests-per-minute: ${YOUTUBE_RATE_LIMIT_RPM:}
-    quota-units-per-day: ${YOUTUBE_QUOTA_UNITS_DAY:}
-
-huggingface:
-  api-key: ${HUGGINGFACE_API_KEY:}
+    requests-per-minute: ${YOUTUBE_RATE_LIMIT_RPM:100}
+    quota-units-per-day: ${YOUTUBE_QUOTA_UNITS_DAY:10000}

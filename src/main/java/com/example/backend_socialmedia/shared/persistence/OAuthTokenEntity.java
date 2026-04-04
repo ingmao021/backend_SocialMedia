@@ -12,7 +12,7 @@ public class OAuthTokenEntity {
     private String id;
 
     @Column(nullable = false, unique = true)
-    private String userId;
+    private Long userId;
 
     @Column(nullable = false, length = 2048)
     private String accessToken;
@@ -27,8 +27,8 @@ public class OAuthTokenEntity {
     private String provider;
 
     public String getId() { return id; }
-    public String getUserId() { return userId; }
-    public void setUserId(String userId) { this.userId = userId; }
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
     public String getAccessToken() { return accessToken; }
     public void setAccessToken(String accessToken) { this.accessToken = accessToken; }
     public String getRefreshToken() { return refreshToken; }

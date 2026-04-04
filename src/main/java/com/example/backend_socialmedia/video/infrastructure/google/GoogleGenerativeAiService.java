@@ -120,7 +120,21 @@ public class GoogleGenerativeAiService {
 
             HttpEntity<Void> entity = new HttpEntity<>(headers);
 
-            String url = "https://us-central1-aiplatform.googleapis.com/v1/" + operationName;
+            // URL correcta para consultar operaciones de larga duración
+            // operationName contiene la ruta completa, extraemos solo el UUID final
+            String operationId = operationName;
+            if (operationName.contains("/operations/")) {
+                operationId = operationName.substring(operationName.lastIndexOf("/") + 1);
+            }
+
+            String url = String.format(
+                    "https://us-central1-aiplatform.googleapis.com/v1/projects/%s/locations/us-central1/operations/%s",
+                    projectId,
+                    operationId
+            );
+
+            logger.info("Consultando estado en URL: {}", url);
+
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
 
             Map responseBody = response.getBody();
