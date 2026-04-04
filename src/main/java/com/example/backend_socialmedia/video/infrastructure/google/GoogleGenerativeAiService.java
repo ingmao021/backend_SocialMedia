@@ -9,16 +9,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
 public class GoogleGenerativeAiService {
 
     private static final Logger logger = LoggerFactory.getLogger(GoogleGenerativeAiService.class);
-    private static final String REPLICATE_API_URL = "https://api.replicate.com/v1/models/wan-video/wan-2.7-t2v/predictions";
+    private static final String VEO_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/veo-2.0-generate-001:predictLongRunning";
 
-    @Value("${REPLICATE_API_KEY}")
-    private String replicateApiKey;
+    @Value("${google.generative-ai-api-key}")
+    private String apiKey;
 
     private final GoogleAiProperties googleAiProperties;
     private final RestTemplate restTemplate;
@@ -30,73 +31,57 @@ public class GoogleGenerativeAiService {
 
     public GoogleVideoGenerationResponse generateVideo(String prompt) {
         try {
-            logger.info("Generando video con Replicate. Prompt: {}", prompt);
+            logger.info("Generando video con Veo 2. Prompt: {}", prompt);
 
             HttpHeaders headers = new HttpHeaders();
-            headers.set("Authorization", "Bearer " + replicateApiKey);
             headers.setContentType(MediaType.APPLICATION_JSON);
 
-            Map<String, Object> input = new HashMap<>();
-            input.put("prompt", prompt);
-            input.put("duration", 5);
-            input.put("resolution", "720p");
-            input.put("aspect_ratio", "16:9");
-            input.put("enable_prompt_expansion", false);
+            Map<String, Object> videoConfig = new HashMap<>();
+            videoConfig.put("durationSeconds", 5);
+            videoConfig.put("aspectRatio", "16:9");
+
+            Map<String, Object> instance = new HashMap<>();
+            instance.put("prompt", prompt);
 
             Map<String, Object> body = new HashMap<>();
-            body.put("input", input);
+            body.put("instances", List.of(instance));
+            body.put("parameters", videoConfig);
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
 
             ResponseEntity<Map> response = restTemplate.exchange(
-                    REPLICATE_API_URL,
+                    VEO_API_URL + "?key=" + apiKey,
                     HttpMethod.POST,
                     entity,
                     Map.class
             );
 
             Map responseBody = response.getBody();
-            logger.info("Respuesta de Replicate: {}", responseBody);
+            logger.info("Respuesta de Veo 2: {}", responseBody);
 
             if (responseBody != null) {
-                String status = (String) responseBody.get("status");
-                String jobId = (String) responseBody.get("id");
-
-                Object output = responseBody.get("output");
-                String videoUrl = null;
-
-                if (output instanceof java.util.List) {
-                    java.util.List outputList = (java.util.List) output;
-                    if (!outputList.isEmpty()) {
-                        videoUrl = outputList.get(0).toString();
-                    }
-                } else if (output instanceof String) {
-                    videoUrl = (String) output;
-                }
-
-                String mappedStatus = "succeeded".equals(status) ? "COMPLETED" :
-                        "failed".equals(status) ? "ERROR" : "PROCESSING";
-
-                return new GoogleVideoGenerationResponse(jobId, mappedStatus, videoUrl, null);
+                String operationName = (String) responseBody.get("name");
+                logger.info("Operación iniciada: {}", operationName);
+                return new GoogleVideoGenerationResponse(operationName, "PROCESSING", null, null);
             }
 
-            throw new RuntimeException("Respuesta vacía de Replicate");
+            throw new RuntimeException("Respuesta vacía de Veo 2");
 
         } catch (Exception e) {
-            logger.error("Error al generar video con Replicate", e);
+            logger.error("Error al generar video con Veo 2", e);
             return new GoogleVideoGenerationResponse(null, "ERROR", null, e.getMessage());
         }
     }
 
-    public GoogleVideoGenerationResponse getJobStatus(String jobId) {
+    public GoogleVideoGenerationResponse getJobStatus(String operationName) {
         try {
             HttpHeaders headers = new HttpHeaders();
-            headers.set("Authorization", "Bearer " + replicateApiKey);
+            headers.setContentType(MediaType.APPLICATION_JSON);
 
             HttpEntity<Void> entity = new HttpEntity<>(headers);
 
             ResponseEntity<Map> response = restTemplate.exchange(
-                    "https://api.replicate.com/v1/predictions/" + jobId,
+                    "https://generativelanguage.googleapis.com/v1beta/" + operationName + "?key=" + apiKey,
                     HttpMethod.GET,
                     entity,
                     Map.class
@@ -104,32 +89,32 @@ public class GoogleGenerativeAiService {
 
             Map responseBody = response.getBody();
             if (responseBody != null) {
-                String status = (String) responseBody.get("status");
-                Object output = responseBody.get("output");
-                String videoUrl = null;
+                Boolean done = (Boolean) responseBody.get("done");
 
-                if (output instanceof java.util.List) {
-                    java.util.List outputList = (java.util.List) output;
-                    if (!outputList.isEmpty()) {
-                        videoUrl = outputList.get(0).toString();
+                if (Boolean.TRUE.equals(done)) {
+                    Map responseMap = (Map) responseBody.get("response");
+                    if (responseMap != null) {
+                        List predictions = (List) responseMap.get("predictions");
+                        if (predictions != null && !predictions.isEmpty()) {
+                            Map prediction = (Map) predictions.get(0);
+                            String videoUrl = (String) prediction.get("bytesBase64Encoded");
+                            return new GoogleVideoGenerationResponse(operationName, "COMPLETED", videoUrl, null);
+                        }
                     }
                 }
 
-                String mappedStatus = "succeeded".equals(status) ? "COMPLETED" :
-                        "failed".equals(status) ? "ERROR" : "PROCESSING";
-
-                return new GoogleVideoGenerationResponse(jobId, mappedStatus, videoUrl, null);
+                return new GoogleVideoGenerationResponse(operationName, "PROCESSING", null, null);
             }
 
-            return new GoogleVideoGenerationResponse(jobId, "PROCESSING", null, null);
+            return new GoogleVideoGenerationResponse(operationName, "PROCESSING", null, null);
 
         } catch (Exception e) {
-            logger.error("Error al obtener estado del job: {}", jobId, e);
-            return new GoogleVideoGenerationResponse(jobId, "ERROR", null, e.getMessage());
+            logger.error("Error al obtener estado de operación: {}", operationName, e);
+            return new GoogleVideoGenerationResponse(operationName, "ERROR", null, e.getMessage());
         }
     }
 
     public boolean validateApiKey() {
-        return replicateApiKey != null && !replicateApiKey.trim().isEmpty();
+        return apiKey != null && !apiKey.trim().isEmpty();
     }
 }
