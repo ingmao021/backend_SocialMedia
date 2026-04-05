@@ -3,6 +3,7 @@ package com.example.backend_socialmedia.shared.config;
 import com.example.backend_socialmedia.auth.application.GoogleAuthUseCase;
 import com.example.backend_socialmedia.auth.infrastructure.web.CustomAuthorizationRequestResolver;
 import com.example.backend_socialmedia.auth.infrastructure.web.OAuth2SuccessHandler;
+import com.example.backend_socialmedia.auth.infrastructure.web.OAuth2FailureHandler;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,6 +20,7 @@ public class SecurityConfig {
     private final GoogleAuthUseCase googleAuthUseCase;
     private final CorsConfigurationSource corsConfigurationSource;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    private final OAuth2FailureHandler oAuth2FailureHandler;
     private final CustomAuthorizationRequestResolver authorizationRequestResolver;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
@@ -28,11 +30,13 @@ public class SecurityConfig {
     public SecurityConfig(GoogleAuthUseCase googleAuthUseCase,
                           CorsConfigurationSource corsConfigurationSource,
                           OAuth2SuccessHandler oAuth2SuccessHandler,
+                          OAuth2FailureHandler oAuth2FailureHandler,
                           CustomAuthorizationRequestResolver authorizationRequestResolver,
                           JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.googleAuthUseCase = googleAuthUseCase;
         this.corsConfigurationSource = corsConfigurationSource;
         this.oAuth2SuccessHandler = oAuth2SuccessHandler;
+        this.oAuth2FailureHandler = oAuth2FailureHandler;
         this.authorizationRequestResolver = authorizationRequestResolver;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
@@ -56,9 +60,11 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
-                        // ← reemplaza el lambda por el handler dedicado
+                        // Manejador de éxito en autenticación
                         .successHandler(oAuth2SuccessHandler)
-                        // ← agrega access_type=offline y prompt=consent
+                        // Manejador de fallos en autenticación
+                        .failureHandler(oAuth2FailureHandler)
+                        // Personalizar parámetros de autorización (access_type=offline, prompt=consent)
                         .authorizationEndpoint(endpoint -> endpoint
                                 .authorizationRequestResolver(authorizationRequestResolver)
                         )

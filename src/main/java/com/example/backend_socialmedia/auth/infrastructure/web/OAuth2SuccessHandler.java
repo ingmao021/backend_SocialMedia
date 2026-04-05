@@ -5,6 +5,8 @@ import com.example.backend_socialmedia.shared.utils.JwtUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
@@ -22,6 +24,8 @@ import java.util.Map;
 @Component
 public class OAuth2SuccessHandler
         extends SimpleUrlAuthenticationSuccessHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(OAuth2SuccessHandler.class);
 
     private final GoogleAuthUseCase googleAuthUseCase;
     private final OAuth2AuthorizedClientService clientService;
@@ -47,48 +51,83 @@ public class OAuth2SuccessHandler
                                         Authentication authentication)
             throws IOException {
 
-        OAuth2AuthenticationToken token =
-                (OAuth2AuthenticationToken) authentication;
+        try {
+            log.info("OAuth2 autenticación iniciada");
 
-        // Obtiene el cliente autorizado (contiene accessToken y refreshToken)
-        OAuth2AuthorizedClient client = clientService.loadAuthorizedClient(
-                token.getAuthorizedClientRegistrationId(),
-                token.getName()
-        );
+            OAuth2AuthenticationToken token =
+                    (OAuth2AuthenticationToken) authentication;
 
-        OAuth2AccessToken  accessToken  = client.getAccessToken();
-        OAuth2RefreshToken refreshToken = client.getRefreshToken();
+            // Obtiene el cliente autorizado (contiene accessToken y refreshToken)
+            OAuth2AuthorizedClient client = clientService.loadAuthorizedClient(
+                    token.getAuthorizedClientRegistrationId(),
+                    token.getName()
+            );
 
-        long expiresIn = (accessToken.getExpiresAt() != null)
-                ? ChronoUnit.SECONDS.between(
-                java.time.Instant.now(),
-                accessToken.getExpiresAt())
-                : 3600L;
+            if (client == null) {
+                log.error("No se pudo cargar el cliente autorizado de OAuth2");
+                throw new IOException("No se pudo cargar el cliente autorizado de OAuth2");
+            }
 
-        // Llama al caso de uso con los tokens
-        var user = googleAuthUseCase.executeWithTokens(
-                token.getPrincipal(),
-                accessToken.getTokenValue(),
-                refreshToken != null ? refreshToken.getTokenValue() : null,
-                expiresIn
-        );
+            OAuth2AccessToken  accessToken  = client.getAccessToken();
+            OAuth2RefreshToken refreshToken = client.getRefreshToken();
 
-        // Genera JWT
-        String jwt = jwtUtils.generateToken(user.getId(), user.getEmail());
+            if (accessToken == null) {
+                log.error("Access token es null");
+                throw new IOException("Access token no disponible");
+            }
 
-        // Responde con JSON en lugar de redirigir
-        response.setContentType("application/json");
-        response.setStatus(HttpServletResponse.SC_OK);
+            long expiresIn = (accessToken.getExpiresAt() != null)
+                    ? ChronoUnit.SECONDS.between(
+                    java.time.Instant.now(),
+                    accessToken.getExpiresAt())
+                    : 3600L;
 
-        Map<String, Object> responseBody = new HashMap<>();
-        responseBody.put("token", jwt);
-        responseBody.put("user", Map.of(
-                "id", user.getId(),
-                "name", user.getName(),
-                "email", user.getEmail(),
-                "picture", user.getPicture()
-        ));
+            log.debug("Access token obtenido, expira en {} segundos", expiresIn);
 
-        response.getWriter().write(objectMapper.writeValueAsString(responseBody));
+            // Llama al caso de uso con los tokens
+            var user = googleAuthUseCase.executeWithTokens(
+                    token.getPrincipal(),
+                    accessToken.getTokenValue(),
+                    refreshToken != null ? refreshToken.getTokenValue() : null,
+                    expiresIn
+            );
+
+            log.info("Usuario autenticado: email={}, id={}", user.getEmail(), user.getId());
+
+            // Genera JWT
+            String jwt = jwtUtils.generateToken(user.getId(), user.getEmail());
+
+            // Responde con JSON en lugar de redirigir
+            response.setContentType("application/json");
+            response.setStatus(HttpServletResponse.SC_OK);
+
+            Map<String, Object> responseBody = new HashMap<>();
+            responseBody.put("token", jwt);
+            responseBody.put("user", Map.of(
+                    "id", user.getId(),
+                    "name", user.getName(),
+                    "email", user.getEmail(),
+                    "picture", user.getPicture()
+            ));
+            responseBody.put("success", true);
+            responseBody.put("message", "Autenticación exitosa");
+
+            response.getWriter().write(objectMapper.writeValueAsString(responseBody));
+
+        } catch (Exception e) {
+            log.error("Error en autenticación OAuth2: {}", e.getMessage(), e);
+
+            // En caso de error, devolver JSON con error
+            response.setContentType("application/json");
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+
+            Map<String, Object> errorBody = new HashMap<>();
+            errorBody.put("success", false);
+            errorBody.put("error", "AUTHENTICATION_ERROR");
+            errorBody.put("message", "Error durante la autenticación: " + e.getMessage());
+            errorBody.put("timestamp", System.currentTimeMillis());
+
+            response.getWriter().write(objectMapper.writeValueAsString(errorBody));
+        }
     }
 }
