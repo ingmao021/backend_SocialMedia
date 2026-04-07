@@ -39,7 +39,7 @@ public class VideoStatusPollingService {
      * Ejecuta el polling de estado de videos periódicamente
      * Se ejecuta cada X segundos configurados
      */
-    @Scheduled(fixedDelayString = "${video-generation.polling-interval-seconds:30000}", timeUnit = java.util.concurrent.TimeUnit.SECONDS)
+    @Scheduled(fixedDelayString = "${video-generation.polling-interval-seconds:30}", timeUnit = java.util.concurrent.TimeUnit.SECONDS)
     public void pollVideoStatus() {
         logger.debug("Iniciando polling de estado de videos");
 

@@ -35,8 +35,8 @@ public class GoogleGenerativeAiService {
     private String privateKeyId;
 
     @Value("${GOOGLE_CLOUD_CLIENT_ID}")
-
     private String clientId;
+
     private final GoogleAiProperties googleAiProperties;
     private final RestTemplate restTemplate;
 

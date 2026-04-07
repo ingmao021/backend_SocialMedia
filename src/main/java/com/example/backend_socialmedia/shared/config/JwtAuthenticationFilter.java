@@ -53,8 +53,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         userDetails.getAuthorities()
                 );
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                // Guardar el JWT en las credenciales para acceso posterior
-                authToken.eraseCredentials();
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         }

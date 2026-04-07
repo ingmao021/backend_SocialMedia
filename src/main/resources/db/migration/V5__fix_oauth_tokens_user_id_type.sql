@@ -1,9 +1,6 @@
--- Corregir el tipo de user_id en oauth_tokens para que sea BIGINT
--- Este script ejecuta solo si user_id fue creado como VARCHAR por error
-
 DO $$
 DECLARE
-    constraint_name TEXT;
+    v_constraint_name TEXT;
 BEGIN
     -- Verificar si la columna user_id existe y es de tipo character varying
     IF EXISTS (
@@ -13,25 +10,25 @@ BEGIN
         AND data_type = 'character varying'
     ) THEN
         -- Obtener el nombre exacto de la restricción de clave foránea
-        SELECT constraint_name INTO constraint_name
-        FROM information_schema.table_constraints
-        WHERE table_name = 'oauth_tokens'
-        AND constraint_type = 'FOREIGN KEY'
-        AND constraint_name LIKE '%user_id%'
+        SELECT tc.constraint_name INTO v_constraint_name
+        FROM information_schema.table_constraints tc
+        WHERE tc.table_name = 'oauth_tokens'
+        AND tc.constraint_type = 'FOREIGN KEY'
+        AND tc.constraint_name LIKE '%user_id%'
         LIMIT 1;
 
         -- Si no encuentra una con user_id en el nombre, intenta la primera clave foránea
-        IF constraint_name IS NULL THEN
-            SELECT constraint_name INTO constraint_name
-            FROM information_schema.table_constraints
-            WHERE table_name = 'oauth_tokens'
-            AND constraint_type = 'FOREIGN KEY'
+        IF v_constraint_name IS NULL THEN
+            SELECT tc.constraint_name INTO v_constraint_name
+            FROM information_schema.table_constraints tc
+            WHERE tc.table_name = 'oauth_tokens'
+            AND tc.constraint_type = 'FOREIGN KEY'
             LIMIT 1;
         END IF;
 
         -- Eliminar la restricción de clave foránea si existe
-        IF constraint_name IS NOT NULL THEN
-            EXECUTE 'ALTER TABLE oauth_tokens DROP CONSTRAINT ' || constraint_name;
+        IF v_constraint_name IS NOT NULL THEN
+            EXECUTE 'ALTER TABLE oauth_tokens DROP CONSTRAINT ' || v_constraint_name;
         END IF;
 
         -- Cambiar el tipo de columna con CAST
