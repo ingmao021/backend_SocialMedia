@@ -160,17 +160,23 @@ public class GoogleGenerativeAiService {
 
             HttpHeaders headers = new HttpHeaders();
             headers.setBearerAuth(accessToken);
+            headers.setContentType(MediaType.APPLICATION_JSON);
 
-            HttpEntity<Void> entity = new HttpEntity<>(headers);
-
-            // Para Veo 3, el operationName ya contiene el path completo:
-            // projects/{project}/locations/{location}/publishers/google/models/{model}/operations/{uuid}
-            // Debemos usar ese path directamente, no la ruta de operaciones estándar
+            // Para Veo 3, debemos usar el endpoint fetchPredictOperation (POST)
+            // en lugar de GET a la URL de operaciones
             String url;
+            String requestBody;
+            
             if (operationName.contains("/publishers/google/models/")) {
-                // Es una operación de modelo generativo (Veo 3)
-                url = String.format("https://%s-aiplatform.googleapis.com/%s/%s",
-                        VEO3_LOCATION, VEO3_API_VERSION, operationName);
+                // Extraer el modelo del operationName
+                // Formato: projects/{p}/locations/{l}/publishers/google/models/{model}/operations/{uuid}
+                String modelPath = operationName.substring(0, operationName.indexOf("/operations/"));
+                
+                url = String.format("https://%s-aiplatform.googleapis.com/%s/%s:fetchPredictOperation",
+                        VEO3_LOCATION, VEO3_API_VERSION, modelPath);
+                
+                // El body debe contener el operationName completo
+                requestBody = String.format("{\"operationName\": \"%s\"}", operationName);
             } else {
                 // Fallback para operaciones estándar (compatibilidad hacia atrás)
                 String operationId = operationName;
@@ -180,11 +186,21 @@ public class GoogleGenerativeAiService {
                 url = String.format(
                         "https://%s-aiplatform.googleapis.com/%s/projects/%s/locations/%s/operations/%s",
                         VEO3_LOCATION, VEO3_API_VERSION, projectId, VEO3_LOCATION, operationId);
+                requestBody = null;
             }
 
             logger.debug("Consultando estado en URL: {}", url);
 
-            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
+            ResponseEntity<Map> response;
+            if (requestBody != null) {
+                // POST para fetchPredictOperation (Veo 3)
+                HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+                response = restTemplate.exchange(url, HttpMethod.POST, entity, Map.class);
+            } else {
+                // GET para operaciones estándar
+                HttpEntity<Void> entity = new HttpEntity<>(headers);
+                response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
+            }
 
             Map responseBody = response.getBody();
             if (responseBody != null) {
@@ -201,6 +217,16 @@ public class GoogleGenerativeAiService {
 
                     Map responseMap = (Map) responseBody.get("response");
                     if (responseMap != null) {
+                        // Veo 3 usa "videos" en lugar de "predictions"
+                        List videos = (List) responseMap.get("videos");
+                        if (videos != null && !videos.isEmpty()) {
+                            Map video = (Map) videos.get(0);
+                            String videoUrl = (String) video.get("gcsUri");
+                            logger.info("Video generado exitosamente. URL: {}", videoUrl);
+                            return new GoogleVideoGenerationResponse(operationName, "COMPLETED", videoUrl, null);
+                        }
+                        
+                        // Fallback para formato anterior (predictions)
                         List predictions = (List) responseMap.get("predictions");
                         if (predictions != null && !predictions.isEmpty()) {
                             Map prediction = (Map) predictions.get(0);
