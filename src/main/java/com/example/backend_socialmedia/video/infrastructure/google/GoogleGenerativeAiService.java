@@ -216,12 +216,34 @@ public class GoogleGenerativeAiService {
                     }
 
                     Map responseMap = (Map) responseBody.get("response");
+                    logger.info("Respuesta completa de Google: {}", responseBody);
+                    
                     if (responseMap != null) {
-                        // Veo 3 usa "videos" en lugar de "predictions"
+                        logger.info("Response map: {}", responseMap);
+                        
+                        // Veo 3 usa "generateVideoResponse" -> "generatedSamples"
+                        Map generateVideoResponse = (Map) responseMap.get("generateVideoResponse");
+                        if (generateVideoResponse != null) {
+                            logger.info("generateVideoResponse: {}", generateVideoResponse);
+                            List generatedSamples = (List) generateVideoResponse.get("generatedSamples");
+                            if (generatedSamples != null && !generatedSamples.isEmpty()) {
+                                Map sample = (Map) generatedSamples.get(0);
+                                logger.info("Sample: {}", sample);
+                                Map videoObj = (Map) sample.get("video");
+                                if (videoObj != null) {
+                                    String videoUrl = extractVideoUrl(videoObj);
+                                    logger.info("Video generado exitosamente. URL: {}", videoUrl);
+                                    return new GoogleVideoGenerationResponse(operationName, "COMPLETED", videoUrl, null);
+                                }
+                            }
+                        }
+                        
+                        // Fallback: Veo 3 formato "videos"
                         List videos = (List) responseMap.get("videos");
                         if (videos != null && !videos.isEmpty()) {
                             Map video = (Map) videos.get(0);
-                            String videoUrl = (String) video.get("gcsUri");
+                            logger.info("Video object: {}", video);
+                            String videoUrl = extractVideoUrl(video);
                             logger.info("Video generado exitosamente. URL: {}", videoUrl);
                             return new GoogleVideoGenerationResponse(operationName, "COMPLETED", videoUrl, null);
                         }
@@ -230,17 +252,17 @@ public class GoogleGenerativeAiService {
                         List predictions = (List) responseMap.get("predictions");
                         if (predictions != null && !predictions.isEmpty()) {
                             Map prediction = (Map) predictions.get(0);
-                            String videoUrl = (String) prediction.get("gcsUri");
-                            if (videoUrl == null) {
-                                videoUrl = (String) prediction.get("bytesBase64Encoded");
-                            }
+                            logger.info("Prediction object: {}", prediction);
+                            String videoUrl = extractVideoUrl(prediction);
                             logger.info("Video generado exitosamente. URL: {}", videoUrl);
                             return new GoogleVideoGenerationResponse(operationName, "COMPLETED", videoUrl, null);
                         }
+                        
+                        logger.warn("Estructura de respuesta no reconocida. Keys: {}", responseMap.keySet());
                     }
                     
                     return new GoogleVideoGenerationResponse(operationName, "ERROR", null, 
-                        "Operación completada pero sin video en la respuesta");
+                        "Operación completada pero sin video en la respuesta. Response: " + responseBody);
                 }
                 return new GoogleVideoGenerationResponse(operationName, "PROCESSING", null, null);
             }
@@ -284,6 +306,26 @@ public class GoogleGenerativeAiService {
             throw new IllegalArgumentException(
                 "Resolución inválida: " + resolution + ". Veo 3 soporta: 720p o 1080p");
         }
+    }
+
+    /**
+     * Extrae la URL del video de diferentes formatos de respuesta de Google
+     */
+    private String extractVideoUrl(Map videoObj) {
+        if (videoObj == null) return null;
+        
+        // Intentar diferentes campos donde puede estar la URL
+        String[] possibleFields = {"uri", "gcsUri", "videoUri", "bytesBase64Encoded"};
+        
+        for (String field : possibleFields) {
+            Object value = videoObj.get(field);
+            if (value != null && value instanceof String && !((String) value).isEmpty()) {
+                return (String) value;
+            }
+        }
+        
+        logger.warn("No se encontró URL en el objeto video. Keys disponibles: {}", videoObj.keySet());
+        return null;
     }
 
     private GoogleVideoGenerationResponse handleHttpError(int statusCode, String errorBody) {
