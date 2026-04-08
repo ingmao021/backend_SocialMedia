@@ -163,15 +163,24 @@ public class GoogleGenerativeAiService {
 
             HttpEntity<Void> entity = new HttpEntity<>(headers);
 
-            String operationId = operationName;
-            if (operationName.contains("/operations/")) {
-                operationId = operationName.substring(operationName.lastIndexOf("/") + 1);
+            // Para Veo 3, el operationName ya contiene el path completo:
+            // projects/{project}/locations/{location}/publishers/google/models/{model}/operations/{uuid}
+            // Debemos usar ese path directamente, no la ruta de operaciones estándar
+            String url;
+            if (operationName.contains("/publishers/google/models/")) {
+                // Es una operación de modelo generativo (Veo 3)
+                url = String.format("https://%s-aiplatform.googleapis.com/%s/%s",
+                        VEO3_LOCATION, VEO3_API_VERSION, operationName);
+            } else {
+                // Fallback para operaciones estándar (compatibilidad hacia atrás)
+                String operationId = operationName;
+                if (operationName.contains("/operations/")) {
+                    operationId = operationName.substring(operationName.lastIndexOf("/") + 1);
+                }
+                url = String.format(
+                        "https://%s-aiplatform.googleapis.com/%s/projects/%s/locations/%s/operations/%s",
+                        VEO3_LOCATION, VEO3_API_VERSION, projectId, VEO3_LOCATION, operationId);
             }
-
-            String url = String.format(
-                    "https://%s-aiplatform.googleapis.com/%s/projects/%s/locations/%s/operations/%s",
-                    VEO3_LOCATION, VEO3_API_VERSION, projectId, VEO3_LOCATION, operationId
-            );
 
             logger.debug("Consultando estado en URL: {}", url);
 
