@@ -26,6 +26,9 @@ public class VideoStatusPollingService {
     @Value("${video-generation.polling-interval-seconds:30}")
     private int pollingIntervalSeconds;
 
+    @Value("${video-generation.signed-url-hours:12}")
+    private int signedUrlExpirationHours;
+
     private final VideoRepository videoRepository;
     private final GoogleGenerativeAiService googleAiService;
 
@@ -80,7 +83,18 @@ public class VideoStatusPollingService {
             if ("COMPLETED".equals(response.getStatus())) {
                 logger.info("Video {} completado", video.getId());
                 video.setStatus(VideoStatus.COMPLETED);
-                video.setVideoUrl(response.getVideoUrl());
+                
+                if (response.getVideoUrl() != null && response.getVideoUrl().startsWith("gs://")) {
+                    String signedUrl = googleAiService.generateSignedUrl(
+                        response.getVideoUrl(), 
+                        signedUrlExpirationHours
+                    );
+                    logger.info("Signed URL generada para video {}: {}", video.getId(), signedUrl);
+                    video.setVideoUrl(signedUrl);
+                } else {
+                    video.setVideoUrl(response.getVideoUrl());
+                }
+                
                 video.setUpdatedAt(LocalDateTime.now());
                 videoRepository.save(video);
 

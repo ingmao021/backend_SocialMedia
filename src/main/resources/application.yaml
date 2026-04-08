@@ -56,6 +56,8 @@ google:
 
 video-generation:
   polling-interval-seconds: ${VIDEO_POLLING_INTERVAL:30}
+  output-bucket: ${VIDEO_OUTPUT_BUCKET}
+  signed-url-hours: ${VIDEO_SIGNED_URL_HOURS:12}
 
 youtube:
   api-timeout-seconds: ${YOUTUBE_API_TIMEOUT:300}

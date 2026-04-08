@@ -3,6 +3,10 @@ package com.example.backend_socialmedia.video.infrastructure.google;
 import com.example.backend_socialmedia.shared.config.GoogleAiProperties;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.auth.oauth2.ServiceAccountCredentials;
+import com.google.cloud.storage.BlobId;
+import com.google.cloud.storage.BlobInfo;
+import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.StorageOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,6 +22,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class GoogleGenerativeAiService {
@@ -49,6 +54,12 @@ public class GoogleGenerativeAiService {
 
     @Value("${GOOGLE_CLOUD_CLIENT_ID}")
     private String clientId;
+
+    @Value("${video-generation.output-bucket:}")
+    private String videoOutputBucket;
+
+    @Value("${video-generation.signed-url-hours:12}")
+    private int signedUrlExpirationHours;
 
     private final GoogleAiProperties googleAiProperties;
     private final RestTemplate restTemplate;
@@ -115,6 +126,15 @@ public class GoogleGenerativeAiService {
             Map<String, Object> body = new HashMap<>();
             body.put("instances", List.of(instance));
             body.put("parameters", parameters);
+            
+            if (videoOutputBucket != null && !videoOutputBucket.isEmpty()) {
+                Map<String, Object> outputConfig = new HashMap<>();
+                Map<String, Object> gcsDestination = new HashMap<>();
+                gcsDestination.put("uri", videoOutputBucket);
+                outputConfig.put("gcsDestination", gcsDestination);
+                body.put("outputConfig", outputConfig);
+                logger.info("Output bucket configurado: {}", videoOutputBucket);
+            }
 
             String url = String.format(
                     "https://%s-aiplatform.googleapis.com/%s/projects/%s/locations/%s/publishers/google/models/%s:predictLongRunning",
@@ -314,8 +334,13 @@ public class GoogleGenerativeAiService {
     private String extractVideoUrl(Map videoObj) {
         if (videoObj == null) return null;
         
-        // Intentar diferentes campos donde puede estar la URL
-        String[] possibleFields = {"uri", "gcsUri", "videoUri", "bytesBase64Encoded"};
+        String[] possibleFields = {
+            "gcsUri",       // Google Cloud Storage URI - PRIORIDAD
+            "uri",          // URI general
+            "storageUri",   // Storage URI
+            "videoUri"      // Video URI
+            // NO incluir bytesBase64Encoded - es muy largo
+        };
         
         for (String field : possibleFields) {
             Object value = videoObj.get(field);
@@ -324,8 +349,72 @@ public class GoogleGenerativeAiService {
             }
         }
         
-        logger.warn("No se encontró URL en el objeto video. Keys disponibles: {}", videoObj.keySet());
+        logger.warn("No se encontró URL (GCS URI) en el objeto video. Keys disponibles: {}", videoObj.keySet());
         return null;
+    }
+    
+    /**
+     * Genera una Signed URL para descargar un video desde Google Cloud Storage
+     */
+    public String generateSignedUrl(String gcsUri, int expirationHours) {
+        try {
+            logger.info("Generando signed URL para: {}", gcsUri);
+            
+            // gcsUri ejemplo: gs://veo3-videos-social/videos/abc123.mp4
+            String uriWithoutGs = gcsUri.replace("gs://", "");
+            int slashIndex = uriWithoutGs.indexOf("/");
+            
+            if (slashIndex == -1) {
+                logger.error("GCS URI inválido: {}", gcsUri);
+                return null;
+            }
+            
+            String bucketName = uriWithoutGs.substring(0, slashIndex);
+            String objectName = uriWithoutGs.substring(slashIndex + 1);
+            
+            logger.debug("Bucket: {}, Object: {}", bucketName, objectName);
+            
+            // Crear credentials desde service account
+            String serviceAccountJson = createServiceAccountJson();
+            GoogleCredentials credentials = ServiceAccountCredentials
+                    .fromStream(new ByteArrayInputStream(serviceAccountJson.getBytes(StandardCharsets.UTF_8)))
+                    .createScoped(Collections.singletonList("https://www.googleapis.com/auth/cloud-platform"));
+            
+            // Crear Storage client
+            Storage storage = StorageOptions.newBuilder()
+                    .setProjectId(projectId)
+                    .setCredentials(credentials)
+                    .build()
+                    .getService();
+            
+            // Generar signed URL
+            BlobId blobId = BlobId.of(bucketName, objectName);
+            BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
+            
+            java.net.URL signedUrl = storage.signUrl(blobInfo, expirationHours, TimeUnit.HOURS);
+            String url = signedUrl.toString();
+            
+            logger.info("Signed URL generada exitosamente: {}", url.substring(0, Math.min(50, url.length())) + "...");
+            return url;
+            
+        } catch (Exception e) {
+            logger.error("Error al generar signed URL para: {}", gcsUri, e);
+            return null;
+        }
+    }
+    
+    private String createServiceAccountJson() {
+        return String.format("""
+            {
+              "type": "service_account",
+              "project_id": "%s",
+              "private_key_id": "%s",
+              "client_email": "%s",
+              "client_id": "%s",
+              "private_key": "%s",
+              "token_uri": "https://oauth2.googleapis.com/token"
+            }
+            """, projectId, privateKeyId, clientEmail, clientId, privateKey.replace("\\n", "\n"));
     }
 
     private GoogleVideoGenerationResponse handleHttpError(int statusCode, String errorBody) {
