@@ -30,7 +30,7 @@ public class VideoEntity {
     @Column(name = "status", nullable = false, length = 50)
     private VideoStatusEntity status;
 
-    @Column(name = "video_url", length = 2048)
+    @Column(name = "video_url", columnDefinition = "TEXT")
     private String videoUrl;
 
     @Column(name = "google_job_id", length = 255)

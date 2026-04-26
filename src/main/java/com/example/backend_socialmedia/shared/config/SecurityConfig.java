@@ -48,6 +48,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
+                                "/",
+                                "/health",
                                 "/api/auth/status",
                                 "/api/auth/google-url",
                                 "/login/**",
