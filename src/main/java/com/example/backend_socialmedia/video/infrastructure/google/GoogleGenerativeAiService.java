@@ -27,7 +27,7 @@ public class GoogleGenerativeAiService implements VideoGenerationPort {
 
     private static final String VEO_ENDPOINT =
             "https://us-central1-aiplatform.googleapis.com/v1/projects/%s/locations/us-central1" +
-            "/publishers/google/models/veo-2.0-generate-001:predictLongRunning";
+            "/publishers/google/models/veo-3.1-fast-generate-001:predictLongRunning";
 
     private static final String VERTEX_OPERATIONS_BASE =
             "https://us-central1-aiplatform.googleapis.com/v1/";
