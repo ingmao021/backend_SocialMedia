@@ -22,9 +22,6 @@ public class VideoStatusPollingService {
     @Value("${video-generation.max-processing-hours:2}")
     private int maxProcessingHours;
 
-    @Value("${video-generation.signed-url-hours:12}")
-    private int signedUrlExpirationHours;
-
     private final VideoRepository videoRepository;
     private final VideoGenerationPort videoGenerationPort;
 
@@ -81,7 +78,6 @@ public class VideoStatusPollingService {
 
             VideoGenerationPort.JobStatusResult result = videoGenerationPort.getJobStatus(video.getGoogleJobId());
 
-<<<<<<< HEAD
             switch (result.status()) {
                 case "COMPLETED" -> {
                     video.setStatus(VideoStatus.COMPLETED);
@@ -98,37 +94,6 @@ public class VideoStatusPollingService {
                     logger.error("Video id={} FALLIDO: {}", video.getId(), result.errorMessage());
                 }
                 default -> logger.debug("Video id={} sigue en PROCESSING", video.getId());
-=======
-            GoogleVideoGenerationResponse response = googleAiService.getJobStatus(video.getGoogleJobId());
-
-            if ("COMPLETED".equals(response.getStatus())) {
-                logger.info("Video {} completado", video.getId());
-                video.setStatus(VideoStatus.COMPLETED);
-                
-                if (response.getVideoUrl() != null && response.getVideoUrl().startsWith("gs://")) {
-                    String signedUrl = googleAiService.generateSignedUrl(
-                        response.getVideoUrl(), 
-                        signedUrlExpirationHours
-                    );
-                    logger.info("Signed URL generada para video {}: {}", video.getId(), signedUrl);
-                    video.setVideoUrl(signedUrl);
-                } else {
-                    video.setVideoUrl(response.getVideoUrl());
-                }
-                
-                video.setUpdatedAt(LocalDateTime.now());
-                videoRepository.save(video);
-
-            } else if ("ERROR".equals(response.getStatus())) {
-                logger.error("Video {} falló: {}", video.getId(), response.getErrorMessage());
-                video.setStatus(VideoStatus.ERROR);
-                video.setErrorMessage(response.getErrorMessage());
-                video.setUpdatedAt(LocalDateTime.now());
-                videoRepository.save(video);
-
-            } else {
-                logger.debug("Video {} aún en procesamiento", video.getId());
->>>>>>> d6a0a7953bd7015ccbaf6dc66c16201ab3f3afd1
             }
 
         } catch (Exception e) {
