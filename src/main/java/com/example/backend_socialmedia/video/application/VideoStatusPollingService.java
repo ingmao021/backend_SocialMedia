@@ -1,10 +1,9 @@
 package com.example.backend_socialmedia.video.application;
 
 import com.example.backend_socialmedia.video.domain.Video;
+import com.example.backend_socialmedia.video.domain.VideoGenerationPort;
 import com.example.backend_socialmedia.video.domain.VideoRepository;
 import com.example.backend_socialmedia.video.domain.VideoStatus;
-import com.example.backend_socialmedia.video.infrastructure.google.GoogleGenerativeAiService;
-import com.example.backend_socialmedia.video.infrastructure.google.GoogleVideoGenerationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,91 +12,92 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
-/**
- * Servicio que monitorea y actualiza el estado de videos en generación
- * Consulta periódicamente a Google AI para obtener actualizaciones
- */
 @Service
 public class VideoStatusPollingService {
 
     private static final Logger logger = LoggerFactory.getLogger(VideoStatusPollingService.class);
 
-    @Value("${video-generation.polling-interval-seconds:30}")
-    private int pollingIntervalSeconds;
+    @Value("${video-generation.max-processing-hours:2}")
+    private int maxProcessingHours;
 
     private final VideoRepository videoRepository;
-    private final GoogleGenerativeAiService googleAiService;
+    private final VideoGenerationPort videoGenerationPort;
 
     public VideoStatusPollingService(VideoRepository videoRepository,
-                                     GoogleGenerativeAiService googleAiService) {
+                                     VideoGenerationPort videoGenerationPort) {
         this.videoRepository = videoRepository;
-        this.googleAiService = googleAiService;
+        this.videoGenerationPort = videoGenerationPort;
     }
 
-    /**
-     * Ejecuta el polling de estado de videos periódicamente
-     * Se ejecuta cada X segundos configurados
-     */
-    @Scheduled(fixedDelayString = "${video-generation.polling-interval-seconds:30}", timeUnit = java.util.concurrent.TimeUnit.SECONDS)
+    @Scheduled(fixedDelayString = "${video-generation.polling-interval-seconds:30}",
+               timeUnit = TimeUnit.SECONDS)
     public void pollVideoStatus() {
-        logger.debug("Iniciando polling de estado de videos");
+        List<Video> processingVideos = videoRepository.findByStatus(VideoStatus.PROCESSING);
 
-        try {
-            // Obtener todos los videos en estado PROCESSING
-            List<Video> processingVideos = videoRepository.findByStatus(VideoStatus.PROCESSING);
+        if (processingVideos.isEmpty()) {
+            logger.debug("No hay videos en procesamiento");
+            return;
+        }
 
-            if (processingVideos.isEmpty()) {
-                logger.debug("No hay videos en procesamiento");
-                return;
+        logger.info("Polling: {} video(s) en procesamiento", processingVideos.size());
+
+        for (Video video : processingVideos) {
+            if (hasExceededTimeout(video)) {
+                markAsTimedOut(video);
+                continue;
             }
-
-            logger.info("Consultando estado de {} videos en procesamiento", processingVideos.size());
-
-            for (Video video : processingVideos) {
-                updateVideoStatus(video);
-            }
-
-        } catch (Exception e) {
-            logger.error("Error en el polling de estado de videos", e);
+            updateVideoStatus(video);
         }
     }
 
-    /**
-     * Actualiza el estado de un video individual
-     */
+    private boolean hasExceededTimeout(Video video) {
+        return video.getCreatedAt() != null &&
+               video.getCreatedAt().isBefore(LocalDateTime.now().minusHours(maxProcessingHours));
+    }
+
+    private void markAsTimedOut(Video video) {
+        logger.warn("Video id={} superó el timeout de {}h — marcando como ERROR", video.getId(), maxProcessingHours);
+        video.setStatus(VideoStatus.ERROR);
+        video.setErrorMessage("Timeout: el video no se generó en el tiempo límite de " + maxProcessingHours + "h");
+        video.setUpdatedAt(LocalDateTime.now());
+        videoRepository.save(video);
+    }
+
     private void updateVideoStatus(Video video) {
         try {
             if (video.getGoogleJobId() == null) {
-                logger.warn("Video {} no tiene googleJobId", video.getId());
+                logger.warn("Video id={} no tiene googleJobId — marcando ERROR", video.getId());
+                video.setStatus(VideoStatus.ERROR);
+                video.setErrorMessage("Job ID de Google no disponible");
+                video.setUpdatedAt(LocalDateTime.now());
+                videoRepository.save(video);
                 return;
             }
 
-            logger.debug("Consultando estado de jobId: {}", video.getGoogleJobId());
+            VideoGenerationPort.JobStatusResult result = videoGenerationPort.getJobStatus(video.getGoogleJobId());
 
-            GoogleVideoGenerationResponse response = googleAiService.getJobStatus(video.getGoogleJobId());
-
-            if ("COMPLETED".equals(response.getStatus())) {
-                logger.info("Video {} completado", video.getId());
-                video.setStatus(VideoStatus.COMPLETED);
-                video.setVideoUrl(response.getVideoUrl());
-                video.setUpdatedAt(LocalDateTime.now());
-                videoRepository.save(video);
-
-            } else if ("ERROR".equals(response.getStatus())) {
-                logger.error("Video {} falló: {}", video.getId(), response.getErrorMessage());
-                video.setStatus(VideoStatus.ERROR);
-                video.setErrorMessage(response.getErrorMessage());
-                video.setUpdatedAt(LocalDateTime.now());
-                videoRepository.save(video);
-
-            } else {
-                logger.debug("Video {} aún en procesamiento", video.getId());
+            switch (result.status()) {
+                case "COMPLETED" -> {
+                    video.setStatus(VideoStatus.COMPLETED);
+                    video.setVideoUrl(result.videoUrl());
+                    video.setUpdatedAt(LocalDateTime.now());
+                    videoRepository.save(video);
+                    logger.info("Video id={} COMPLETADO. URL={}", video.getId(), result.videoUrl());
+                }
+                case "ERROR" -> {
+                    video.setStatus(VideoStatus.ERROR);
+                    video.setErrorMessage(result.errorMessage());
+                    video.setUpdatedAt(LocalDateTime.now());
+                    videoRepository.save(video);
+                    logger.error("Video id={} FALLIDO: {}", video.getId(), result.errorMessage());
+                }
+                default -> logger.debug("Video id={} sigue en PROCESSING", video.getId());
             }
 
         } catch (Exception e) {
-            logger.error("Error al actualizar estado del video: {}", video.getId(), e);
+            logger.error("Error al actualizar estado del video id={}: {}", video.getId(), e.getMessage(), e);
         }
     }
 }
-

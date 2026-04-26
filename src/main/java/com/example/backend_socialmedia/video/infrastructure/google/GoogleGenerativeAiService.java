@@ -1,172 +1,188 @@
 package com.example.backend_socialmedia.video.infrastructure.google;
 
-import com.example.backend_socialmedia.shared.config.GoogleAiProperties;
+import com.example.backend_socialmedia.shared.config.VertexAiProperties;
+import com.example.backend_socialmedia.shared.exception.VideoGenerationException;
+import com.example.backend_socialmedia.video.domain.VideoGenerationPort;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.auth.oauth2.ServiceAccountCredentials;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.ByteArrayInputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.HashMap;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
 @Service
-public class GoogleGenerativeAiService {
+public class GoogleGenerativeAiService implements VideoGenerationPort {
 
     private static final Logger logger = LoggerFactory.getLogger(GoogleGenerativeAiService.class);
 
-    @Value("${GOOGLE_CLOUD_PROJECT_ID}")
-    private String projectId;
+    private static final String VEO_ENDPOINT =
+            "https://us-central1-aiplatform.googleapis.com/v1/projects/%s/locations/us-central1" +
+            "/publishers/google/models/veo-2.0-generate-001:predictLongRunning";
 
-    @Value("${GOOGLE_CLOUD_CLIENT_EMAIL}")
-    private String clientEmail;
+    private static final String VERTEX_OPERATIONS_BASE =
+            "https://us-central1-aiplatform.googleapis.com/v1/";
 
-    @Value("${GOOGLE_CLOUD_PRIVATE_KEY}")
-    private String privateKey;
-
-    @Value("${GOOGLE_CLOUD_PRIVATE_KEY_ID}")
-    private String privateKeyId;
-
-    @Value("${GOOGLE_CLOUD_CLIENT_ID}")
-    private String clientId;
-
-    private final GoogleAiProperties googleAiProperties;
+    private final VertexAiProperties vertexProps;
+    private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
+    private GoogleCredentials googleCredentials;
 
-    public GoogleGenerativeAiService(GoogleAiProperties googleAiProperties) {
-        this.googleAiProperties = googleAiProperties;
-        this.restTemplate = new RestTemplate();
+    public GoogleGenerativeAiService(VertexAiProperties vertexProps, ObjectMapper objectMapper) {
+        this.vertexProps = vertexProps;
+        this.objectMapper = objectMapper;
+        this.restTemplate = buildRestTemplate();
+    }
+
+    @PostConstruct
+    public void init() {
+        try {
+            this.googleCredentials = buildCredentials();
+            logger.info("Credenciales de Google Cloud inicializadas para proyecto: {}", vertexProps.getProjectId());
+        } catch (IOException e) {
+            logger.error("Error al inicializar credenciales de Google Cloud", e);
+            throw new RuntimeException("No se pudieron inicializar las credenciales de Google: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public GenerationResult startGeneration(GenerationRequest request) {
+        try {
+            logger.info("Iniciando generación con Veo 2. Prompt length={}", request.prompt().length());
+
+            String accessToken = getAccessToken();
+            HttpHeaders headers = bearerHeaders(accessToken);
+
+            Map<String, Object> body = Map.of(
+                    "instances", List.of(Map.of("prompt", request.prompt())),
+                    "parameters", Map.of(
+                            "durationSeconds", request.durationSeconds(),
+                            "aspectRatio", request.aspectRatio()
+                    )
+            );
+
+            String url = VEO_ENDPOINT.formatted(vertexProps.getProjectId());
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    url, HttpMethod.POST, new HttpEntity<>(body, headers), Map.class
+            );
+
+            Map<?, ?> responseBody = response.getBody();
+            if (responseBody == null || !responseBody.containsKey("name")) {
+                throw new VideoGenerationException("Respuesta inválida de Veo 2: sin campo 'name'");
+            }
+
+            String operationName = (String) responseBody.get("name");
+            logger.info("Veo 2 job iniciado: operationName={}", operationName);
+            return new GenerationResult(operationName);
+
+        } catch (VideoGenerationException e) {
+            throw e;
+        } catch (Exception e) {
+            logger.error("Error al iniciar generación con Veo 2", e);
+            throw new VideoGenerationException("Error al llamar a Veo 2: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public JobStatusResult getJobStatus(String jobId) {
+        try {
+            String accessToken = getAccessToken();
+            String url = VERTEX_OPERATIONS_BASE + jobId;
+
+            logger.debug("Consultando estado del job: {}", url);
+
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    url, HttpMethod.GET, new HttpEntity<>(bearerHeaders(accessToken)), Map.class
+            );
+
+            Map<?, ?> body = response.getBody();
+            if (body == null) {
+                return new JobStatusResult(jobId, "PROCESSING", null, null);
+            }
+
+            Boolean done = (Boolean) body.get("done");
+            if (!Boolean.TRUE.equals(done)) {
+                return new JobStatusResult(jobId, "PROCESSING", null, null);
+            }
+
+            if (body.containsKey("error")) {
+                Map<?, ?> error = (Map<?, ?>) body.get("error");
+                String errorMsg = (String) error.get("message");
+                logger.error("Job {} falló: {}", jobId, errorMsg);
+                return new JobStatusResult(jobId, "ERROR", null, errorMsg);
+            }
+
+            Map<?, ?> responseMap = (Map<?, ?>) body.get("response");
+            if (responseMap != null) {
+                List<?> predictions = (List<?>) responseMap.get("predictions");
+                if (predictions != null && !predictions.isEmpty()) {
+                    Map<?, ?> prediction = (Map<?, ?>) predictions.get(0);
+                    String videoUrl = (String) prediction.get("gcsUri");
+                    if (videoUrl == null) {
+                        videoUrl = (String) prediction.get("bytesBase64Encoded");
+                    }
+                    logger.info("Job {} completado. videoUrl={}", jobId, videoUrl);
+                    return new JobStatusResult(jobId, "COMPLETED", videoUrl, null);
+                }
+            }
+
+            return new JobStatusResult(jobId, "PROCESSING", null, null);
+
+        } catch (Exception e) {
+            logger.error("Error al consultar estado del job {}: {}", jobId, e.getMessage(), e);
+            return new JobStatusResult(jobId, "ERROR", null, "Error consultando estado: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public boolean isConfigured() {
+        return vertexProps.getClientEmail() != null && !vertexProps.getClientEmail().isBlank()
+                && vertexProps.getProjectId() != null && !vertexProps.getProjectId().isBlank();
     }
 
     private String getAccessToken() throws Exception {
-        String json = String.format("""
-            {
-              "type": "service_account",
-              "project_id": "%s",
-              "private_key_id": "%s",
-              "client_email": "%s",
-              "client_id": "%s",
-              "private_key": "%s",
-              "token_uri": "https://oauth2.googleapis.com/token"
-            }
-            """, projectId, privateKeyId, clientEmail, clientId, privateKey.replace("\\n", "\n"));
-
-        GoogleCredentials credentials = ServiceAccountCredentials
-                .fromStream(new ByteArrayInputStream(json.getBytes(StandardCharsets.UTF_8)))
-                .createScoped(Collections.singletonList("https://www.googleapis.com/auth/cloud-platform"));
-
-        credentials.refreshIfExpired();
-        return credentials.getAccessToken().getTokenValue();
+        googleCredentials.refreshIfExpired();
+        return googleCredentials.getAccessToken().getTokenValue();
     }
 
-    public GoogleVideoGenerationResponse generateVideo(String prompt) {
-        try {
-            logger.info("Generando video con Veo 2. Prompt: {}", prompt);
+    private GoogleCredentials buildCredentials() throws IOException {
+        ObjectNode credJson = objectMapper.createObjectNode();
+        credJson.put("type", "service_account");
+        credJson.put("project_id", vertexProps.getProjectId());
+        credJson.put("private_key_id", vertexProps.getPrivateKeyId() != null ? vertexProps.getPrivateKeyId() : "");
+        credJson.put("client_email", vertexProps.getClientEmail());
+        credJson.put("client_id", vertexProps.getClientId() != null ? vertexProps.getClientId() : "");
+        // Reemplaza literales \n por saltos de línea reales (común en env vars)
+        credJson.put("private_key", vertexProps.getPrivateKey().replace("\\n", "\n"));
+        credJson.put("token_uri", "https://oauth2.googleapis.com/token");
 
-            String accessToken = getAccessToken();
+        byte[] jsonBytes = objectMapper.writeValueAsBytes(credJson);
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.setBearerAuth(accessToken);
-
-            Map<String, Object> instance = new HashMap<>();
-            instance.put("prompt", prompt);
-
-            Map<String, Object> parameters = new HashMap<>();
-            parameters.put("durationSeconds", 5);
-            parameters.put("aspectRatio", "16:9");
-
-            Map<String, Object> body = new HashMap<>();
-            body.put("instances", List.of(instance));
-            body.put("parameters", parameters);
-
-            String url = String.format(
-                    "https://us-central1-aiplatform.googleapis.com/v1/projects/%s/locations/us-central1/publishers/google/models/veo-2.0-generate-001:predictLongRunning",
-                    projectId
-            );
-
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
-            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, entity, Map.class);
-
-            Map responseBody = response.getBody();
-            logger.info("Respuesta de Veo 2: {}", responseBody);
-
-            if (responseBody != null) {
-                String operationName = (String) responseBody.get("name");
-                return new GoogleVideoGenerationResponse(operationName, "PROCESSING", null, null);
-            }
-
-            throw new RuntimeException("Respuesta vacía de Veo 2");
-
-        } catch (Exception e) {
-            logger.error("Error al generar video con Veo 2", e);
-            return new GoogleVideoGenerationResponse(null, "ERROR", null, e.getMessage());
-        }
+        return ServiceAccountCredentials
+                .fromStream(new ByteArrayInputStream(jsonBytes))
+                .createScoped("https://www.googleapis.com/auth/cloud-platform");
     }
 
-    public GoogleVideoGenerationResponse getJobStatus(String operationName) {
-        try {
-            String accessToken = getAccessToken();
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setBearerAuth(accessToken);
-
-            HttpEntity<Void> entity = new HttpEntity<>(headers);
-
-            // URL correcta para consultar operaciones de larga duración
-            // operationName contiene la ruta completa, extraemos solo el UUID final
-            String operationId = operationName;
-            if (operationName.contains("/operations/")) {
-                operationId = operationName.substring(operationName.lastIndexOf("/") + 1);
-            }
-
-            String url = String.format(
-                    "https://us-central1-aiplatform.googleapis.com/v1/projects/%s/locations/us-central1/operations/%s",
-                    projectId,
-                    operationId
-            );
-
-            logger.info("Consultando estado en URL: {}", url);
-
-            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
-
-            Map responseBody = response.getBody();
-            if (responseBody != null) {
-                Boolean done = (Boolean) responseBody.get("done");
-
-                if (Boolean.TRUE.equals(done)) {
-                    Map responseMap = (Map) responseBody.get("response");
-                    if (responseMap != null) {
-                        List predictions = (List) responseMap.get("predictions");
-                        if (predictions != null && !predictions.isEmpty()) {
-                            Map prediction = (Map) predictions.get(0);
-                            String videoUrl = (String) prediction.get("gcsUri");
-                            if (videoUrl == null) {
-                                videoUrl = (String) prediction.get("bytesBase64Encoded");
-                            }
-                            return new GoogleVideoGenerationResponse(operationName, "COMPLETED", videoUrl, null);
-                        }
-                    }
-                }
-                return new GoogleVideoGenerationResponse(operationName, "PROCESSING", null, null);
-            }
-
-            return new GoogleVideoGenerationResponse(operationName, "PROCESSING", null, null);
-
-        } catch (Exception e) {
-            logger.error("Error al obtener estado: {}", operationName, e);
-            return new GoogleVideoGenerationResponse(operationName, "ERROR", null, e.getMessage());
-        }
+    private HttpHeaders bearerHeaders(String accessToken) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(accessToken);
+        return headers;
     }
 
-    public boolean validateApiKey() {
-        return clientEmail != null && !clientEmail.trim().isEmpty();
+    private RestTemplate buildRestTemplate() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(30_000);
+        factory.setReadTimeout(300_000);
+        return new RestTemplate(factory);
     }
 }

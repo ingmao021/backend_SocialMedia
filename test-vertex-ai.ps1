@@ -1,18 +1,16 @@
 param(
-    [string]$Token = "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhdXJiYW5vNTM1QGdtYWlsLmNvbSIsInVzZXJJZCI6MiwiaWF0IjoxNzc1NjIxMTYzLCJleHAiOjE3NzU3MDc1NjN9.cSI5W3ebbKChiaUVcL4DwByThm9ruLidwQSG2X0Tn2DzxIi6kj6b5if1YByyRKFPcV8v1DQExwDoWEWo3oHshg",
+    [string]$Token = "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhdXJiYW5vNTM1QGdtYWlsLmNvbSIsInVzZXJJZCI6MiwiaWF0IjoxNzc1NjI0MjgwLCJleHAiOjE3NzU3MTA2ODB9.OaIoY28xtweBFiCxd5BnQCYPJHc3v5fGUIO2STVPLlnthEo9QvqOTvU1FkZtTvHEw3HwTtPRWzTodVRZZYs7hQ",
     [string]$BaseUrl = "https://backend-socialmedia-ixsm.onrender.com",
     [switch]$Verbose = $false
 )
 
 # ============================================================================
-# BACKEND SOCIALMEDIA - TEST SUITE COMPLETO
+# BACKEND SOCIALMEDIA - VERTEX AI VIDEO GENERATION TEST
 # ============================================================================
-# Este script ejecuta una suite completa de tests para validar:
-# - Autenticación JWT
-# - Generación de videos con Google Veo 2
-# - Polling y actualización de estado
-# - Publicación en YouTube
-# - Validación de errores
+# Este script ejecuta tests específicos para validar:
+# - Generación de videos con Google Vertex AI (Veo)
+# - Consulta de estado de videos
+# - Listado de videos generados
 # ============================================================================
 
 $ErrorActionPreference = "Continue"
@@ -41,14 +39,14 @@ function New-TestResult {
 
 function Write-Header {
     param([string]$Text)
-    Write-Host "`n" + ("═" * 75) -ForegroundColor Cyan
+    Write-Host "`n" + ("=" * 75) -ForegroundColor Cyan
     Write-Host "  $Text" -ForegroundColor Cyan
-    Write-Host ("═" * 75) -ForegroundColor Cyan
+    Write-Host ("=" * 75) -ForegroundColor Cyan
 }
 
 function Write-Section {
     param([string]$Text)
-    Write-Host "`n┌─ $Text" -ForegroundColor Blue
+    Write-Host "`n--- $Text" -ForegroundColor Blue
 }
 
 function Write-Test {
@@ -58,22 +56,22 @@ function Write-Test {
 
 function Write-Success {
     param([string]$Text)
-    Write-Host "    ✓ $Text" -ForegroundColor Green
+    Write-Host "    [OK] $Text" -ForegroundColor Green
 }
 
 function Write-Failed {
     param([string]$Text)
-    Write-Host "    ✗ $Text" -ForegroundColor Red
+    Write-Host "    [ERROR] $Text" -ForegroundColor Red
 }
 
 function Write-Warning {
     param([string]$Text)
-    Write-Host "    ⚠ $Text" -ForegroundColor Yellow
+    Write-Host "    [WARNING] $Text" -ForegroundColor Yellow
 }
 
 function Write-Info {
     param([string]$Text, [bool]$Indent = $true)
-    $prefix = if ($Indent) { "    → " } else { "  → " }
+    $prefix = if ($Indent) { "    -> " } else { "  -> " }
     Write-Host "$prefix$Text" -ForegroundColor Gray
 }
 
@@ -151,14 +149,14 @@ function Test-Endpoint {
 # ============================================================================
 
 if (-not $Token) {
-    Write-Host "`n╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Red
-    Write-Host "║  BACKEND SOCIALMEDIA - TEST SUITE COMPLETO                   ║" -ForegroundColor Red
-    Write-Host "╠═══════════════════════════════════════════════════════════════╣" -ForegroundColor Red
-    Write-Host "║  Error: Token JWT requerido                                  ║" -ForegroundColor Red
-    Write-Host "╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor Red
+    Write-Host "`n========================================" -ForegroundColor Red
+    Write-Host "  BACKEND SOCIALMEDIA - VERTEX AI VIDEO TEST" -ForegroundColor Red
+    Write-Host "========================================" -ForegroundColor Red
+    Write-Host "  Error: Token JWT requerido" -ForegroundColor Red
+    Write-Host "========================================" -ForegroundColor Red
 
-    Write-Host "`nUso:" -ForegroundColor Yellow
-    Write-Host "  .\test-complete.ps1 -Token 'eyJhbGc...' [-BaseUrl 'https://...'] [-Verbose]`n"
+    Write-Host "`n  Uso:" -ForegroundColor Yellow
+    Write-Host "  .\test-vertex-ai.ps1 -Token 'eyJhbGc...' [-BaseUrl 'https://...'] [-Verbose]`n"
 
     Write-Host "Pasos para obtener un token:" -ForegroundColor Cyan
     Write-Host "  1. Ir a: https://accounts.google.com/o/oauth2/v2/auth?..." -ForegroundColor Gray
@@ -168,7 +166,7 @@ if (-not $Token) {
     exit 1
 }
 
-Write-Header "BACKEND SOCIALMEDIA - TEST SUITE COMPLETO"
+Write-Header "BACKEND SOCIALMEDIA - VERTEX AI VIDEO GENERATION TEST"
 Write-Info "URL Base: $BaseUrl" $false
 Write-Info "Modo Verbose: $Verbose" $false
 Write-Info "Timestamp: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" $false
@@ -183,12 +181,12 @@ $headers = @{
 }
 
 # ============================================================================
-# SECCIÓN 1: AUTENTICACIÓN Y USUARIO
+# SECCIÓN 1: VALIDACIÓN BÁSICA DE AUTENTICACIÓN
 # ============================================================================
 
-Write-Section "AUTENTICACIÓN Y USUARIO"
+Write-Section "AUTENTICACIÓN BÁSICA"
 
-# Test 1.1: Validar token
+# Test 1.1: Validar token (solo para asegurar que la API funciona)
 $authTest = Test-Endpoint `
     -Name "Validar token JWT" `
     -Uri "$BaseUrl/api/auth/me" `
@@ -212,33 +210,29 @@ if ($authTest.Success) {
     Write-Info "ID: $userId"
     Write-Info "Nombre: $userName"
     Write-Info "Email: $userEmail"
-
-    if ($authTest.Data.picture) {
-        Write-Info "Foto: $($authTest.Data.picture)"
-    }
 } else {
     Write-Failed "No se pudo validar el usuario. Abortando tests."
     exit 1
 }
 
 # ============================================================================
-# SECCIÓN 2: GENERACIÓN DE VIDEOS
+# SECCIÓN 2: GENERACIÓN DE VIDEOS CON VERTEX AI
 # ============================================================================
 
-Write-Section "GENERACIÓN DE VIDEOS"
+Write-Section "GENERACIÓN DE VIDEOS CON VERTEX AI"
 
 $videoPayload = @{
-    title = "Test Veo 2 - $(Get-Date -Format 'HHmmss')"
-    description = "Test automático de generación de video"
+    title = "Vertex AI Test - $(Get-Date -Format 'HHmmss')"
+    description = "Test automático de generación de video con Vertex AI"
     prompt = "A crystal clear waterfall flowing through a lush green forest, water flowing smoothly, sunlight filtering through trees, nature documentary style"
 } | ConvertTo-Json
 
-# Test 2.1: Generar video
-Write-Test ($testResults.Count + 1) "Generar video con Google Veo 2"
+# Test 2.1: Generar video con Vertex AI
+Write-Test ($testResults.Count + 1) "Generar video con Google Vertex AI"
 Write-Warning "Este paso toma 2-5 minutos. Esperando..."
 
 $generateTest = Test-Endpoint `
-    -Name "Generar video" `
+    -Name "Generar video con Vertex AI" `
     -Uri "$BaseUrl/api/videos/generate" `
     -Method "POST" `
     -Headers $headers `
@@ -254,7 +248,7 @@ $generateTest = Test-Endpoint `
         return "Respuesta incompleta"
     }
 
-$testResults += New-TestResult "Video: Generate" $generateTest.Success $generateTest.Error $generateTest.Data
+$testResults += New-TestResult "Vertex AI: Generate Video" $generateTest.Success $generateTest.Error $generateTest.Data
 
 if ($generateTest.Success) {
     $videoId = $generateTest.Data.id
@@ -270,21 +264,21 @@ if ($generateTest.Success) {
         Write-Verbose-Info "Respuesta completa: $(ConvertTo-Json -Depth 10 $generateTest.Data)"
     }
 } else {
-    Write-Failed "Error al generar video"
-    $testResults += New-TestResult "Video: Fetch" $false "Generación falló"
-    $testResults += New-TestResult "Video: Publish" $false "Salto por error anterior"
+    Write-Failed "Error al generar video con Vertex AI"
+    $testResults += New-TestResult "Vertex AI: Fetch Status" $false "Generación falló"
+    $testResults += New-TestResult "Vertex AI: List Videos" $false "Salto por error anterior"
 }
 
 # ============================================================================
-# SECCIÓN 3: CONSULTA Y POLLING
+# SECCIÓN 3: CONSULTA DE ESTADO Y LISTADO
 # ============================================================================
 
 if ($generateTest.Success) {
-    Write-Section "CONSULTA Y POLLING"
+    Write-Section "CONSULTA DE ESTADO Y LISTADO"
 
-    # Test 3.1: Obtener video
+    # Test 3.1: Obtener estado del video
     $fetchTest = Test-Endpoint `
-        -Name "Obtener detalles del video" `
+        -Name "Obtener estado del video" `
         -Uri "$BaseUrl/api/videos/$videoId" `
         -Headers $headers `
         -Validation {
@@ -296,7 +290,7 @@ if ($generateTest.Success) {
             return "ID no coincide"
         }
 
-    $testResults += New-TestResult "Video: Fetch" $fetchTest.Success $fetchTest.Error $fetchTest.Data
+    $testResults += New-TestResult "Vertex AI: Fetch Status" $fetchTest.Success $fetchTest.Error $fetchTest.Data
 
     if ($fetchTest.Success) {
         $currentStatus = $fetchTest.Data.status
@@ -318,9 +312,9 @@ if ($generateTest.Success) {
         }
     }
 
-    # Test 3.2: Listar videos
+    # Test 3.2: Listar videos del usuario
     $listTest = Test-Endpoint `
-        -Name "Listar todos los videos" `
+        -Name "Listar videos generados" `
         -Uri "$BaseUrl/api/videos" `
         -Headers $headers `
         -Validation {
@@ -333,7 +327,7 @@ if ($generateTest.Success) {
             return $true
         }
 
-    $testResults += New-TestResult "Video: List" $listTest.Success $listTest.Error $listTest.Data
+    $testResults += New-TestResult "Vertex AI: List Videos" $listTest.Success $listTest.Error $listTest.Data
 
     if ($listTest.Success) {
         if ($listTest.Data -is [array]) {
@@ -349,69 +343,10 @@ if ($generateTest.Success) {
 }
 
 # ============================================================================
-# SECCIÓN 4: PUBLICACIÓN EN YOUTUBE
-# ============================================================================
-
-if ($generateTest.Success -and $generateTest.Data.status -eq "COMPLETED") {
-    Write-Section "PUBLICACIÓN EN YOUTUBE"
-
-    if ($generateTest.Data.videoUrl) {
-        $youtubePayload = @{
-            videoId = $videoId
-            title = "Test Veo 2: $($generateTest.Data.title)"
-            description = "Video generado automáticamente con Google Veo 2 y Spring Boot Backend"
-            visibility = "PRIVATE"
-        } | ConvertTo-Json
-
-        # Test 4.1: Publicar en YouTube
-        $publishTest = Test-Endpoint `
-            -Name "Publicar en YouTube" `
-            -Uri "$BaseUrl/api/youtube/publish" `
-            -Method "POST" `
-            -Headers $headers `
-            -Body $youtubePayload `
-            -TimeoutSec 60 `
-            -Validation {
-                param($response)
-                if ($response.youtubeVideoId -and $response.youtubeUrl) {
-                    Write-Verbose-Info "YouTube ID: $($response.youtubeVideoId)"
-                    return $true
-                }
-                return "IDs de YouTube faltantes"
-            }
-
-        $testResults += New-TestResult "YouTube: Publish" $publishTest.Success $publishTest.Error $publishTest.Data
-
-        if ($publishTest.Success) {
-            Write-Success "Video publicado en YouTube"
-            Write-Info "YouTube Video ID: $($publishTest.Data.youtubeVideoId)"
-            Write-Info "YouTube URL: $($publishTest.Data.youtubeUrl)"
-            Write-Info "Estado: $($publishTest.Data.status)"
-            Write-Info "Publicado: $($publishTest.Data.publishedAt)"
-
-            if ($Verbose) {
-                Write-Verbose-Info "Respuesta: $(ConvertTo-Json -Depth 10 $publishTest.Data)"
-            }
-        }
-    } else {
-        Write-Warning "URL del video no disponible aún"
-        $testResults += New-TestResult "YouTube: Publish" $false "URL del video no disponible"
-    }
-} else {
-    Write-Section "PUBLICACIÓN EN YOUTUBE"
-    if ($generateTest.Success) {
-        Write-Warning "Video aún en procesamiento - omitiendo publicación"
-        Write-Info "Estado: $($generateTest.Data.status)"
-        Write-Info "Ejecuta nuevamente el test cuando el video esté completado (COMPLETED)"
-    }
-    $testResults += New-TestResult "YouTube: Publish" $false "Salto: video no completado"
-}
-
-# ============================================================================
 # RESUMEN Y REPORTE
 # ============================================================================
 
-Write-Header "RESUMEN DE TESTS"
+Write-Header "RESUMEN DE TESTS VERTEX AI"
 
 $passed = @($testResults | Where-Object { $_.Passed }).Count
 $failed = @($testResults | Where-Object { -not $_.Passed }).Count
@@ -425,7 +360,7 @@ Write-Info "Duración: $($duration.Minutes)m $($duration.Seconds)s" $false
 Write-Section "DETALLE DE RESULTADOS"
 
 $testResults | ForEach-Object {
-    $symbol = if ($_.Passed) { "✓" } else { "✗" }
+    $symbol = if ($_.Passed) { "[OK]" } else { "[ERROR]" }
     $color = if ($_.Passed) { "Green" } else { "Red" }
     Write-Host "  $symbol $($_.Name)" -ForegroundColor $color
     if ($_.Message) {
@@ -437,30 +372,31 @@ $testResults | ForEach-Object {
 # RECOMENDACIONES
 # ============================================================================
 
-Write-Header "RECOMENDACIONES"
+Write-Header "RECOMENDACIONES VERTEX AI"
 
 if ($failed -eq 0) {
-    Write-Success "Todos los tests pasaron exitosamente"
+    Write-Success "Todos los tests de Vertex AI pasaron exitosamente"
 } else {
     Write-Warning "Algunos tests fallaron. Revisa los errores arriba."
 }
 
 if ($generateTest.Success -and $generateTest.Data.status -eq "PROCESSING") {
     Write-Info "El video está en procesamiento. Espera 2-3 minutos y ejecuta nuevamente" $false
-    Write-Info "Comando: .\test-complete.ps1 -Token '$Token' -BaseUrl '$BaseUrl'" $false
+    Write-Info "Comando: .\test-vertex-ai.ps1 -Token '$Token' -BaseUrl '$BaseUrl'" $false
 }
 
 if ($Verbose -eq $false) {
     Write-Info "Para más detalles, ejecuta con -Verbose" $false
 }
 
+Write-Info "Para probar diferentes prompts, modifica la variable \$videoPayload" $false
+
 # ============================================================================
 # EXPORTAR RESULTADOS
 # ============================================================================
 
-$reportFile = "test-results-$(Get-Date -Format 'yyyyMMdd-HHmmss').json"
+$reportFile = "vertex-ai-test-results-$(Get-Date -Format 'yyyyMMdd-HHmmss').json"
 $testResults | ConvertTo-Json -Depth 10 | Out-File $reportFile -Encoding UTF8
 
 Write-Host "`n  Reporte guardado: $reportFile" -ForegroundColor Gray
 Write-Host ""
-

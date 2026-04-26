@@ -1,56 +1,40 @@
 package com.example.backend_socialmedia.video.application;
 
+import com.example.backend_socialmedia.shared.exception.VideoGenerationException;
+import com.example.backend_socialmedia.video.domain.GenerateVideoRequest;
 import com.example.backend_socialmedia.video.domain.Video;
+import com.example.backend_socialmedia.video.domain.VideoGenerationPort;
 import com.example.backend_socialmedia.video.domain.VideoRepository;
 import com.example.backend_socialmedia.video.domain.VideoStatus;
-import com.example.backend_socialmedia.video.domain.GenerateVideoRequest;
-import com.example.backend_socialmedia.video.infrastructure.google.GoogleGenerativeAiService;
-import com.example.backend_socialmedia.video.infrastructure.google.GoogleVideoGenerationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.time.LocalDateTime;
 
-/**
- * Use case para generar videos usando Google AI
- * Orquesta el proceso de generación de video
- */
 @Service
+@Transactional(noRollbackFor = VideoGenerationException.class)
 public class GenerateVideoUseCase {
 
     private static final Logger logger = LoggerFactory.getLogger(GenerateVideoUseCase.class);
 
     private final VideoRepository videoRepository;
-    private final GoogleGenerativeAiService googleAiService;
+    private final VideoGenerationPort videoGenerationPort;
 
-    public GenerateVideoUseCase(VideoRepository videoRepository, GoogleGenerativeAiService googleAiService) {
+    public GenerateVideoUseCase(VideoRepository videoRepository,
+                                VideoGenerationPort videoGenerationPort) {
         this.videoRepository = videoRepository;
-        this.googleAiService = googleAiService;
+        this.videoGenerationPort = videoGenerationPort;
     }
 
-    /**
-     * Ejecuta la generación de un video
-     * @param userId ID del usuario que solicita la generación
-     * @param request Datos de la solicitud (título, descripción, prompt)
-     * @return Video creado
-     */
     public Video execute(Long userId, GenerateVideoRequest request) {
-        logger.info("Iniciando generación de video para usuario: {}", userId);
+        logger.info("Iniciando generación de video para usuario={}", userId);
 
-        // Validar que el prompt no esté vacío
-        if (request.getPrompt() == null || request.getPrompt().trim().isEmpty()) {
-            throw new IllegalArgumentException("El prompt no puede estar vacío");
-        }
-        if (request.getPrompt().length() > 1000) {
-            throw new IllegalArgumentException("El prompt es demasiado largo (máximo 1000 caracteres)");
+        if (!videoGenerationPort.isConfigured()) {
+            throw new VideoGenerationException("El servicio de generación de video no está configurado correctamente");
         }
 
-        // Validar que el API key sea válido
-        if (!googleAiService.validateApiKey()) {
-            throw new RuntimeException("Google Generative AI no está configurado correctamente");
-        }
-
-        // Crear el video con estado PENDING
         Video video = new Video();
         video.setUserId(userId);
         video.setTitle(request.getTitle());
@@ -59,33 +43,27 @@ public class GenerateVideoUseCase {
         video.setStatus(VideoStatus.PENDING);
         video.setCreatedAt(LocalDateTime.now());
         video.setUpdatedAt(LocalDateTime.now());
-
-        // Guardar el video
         video = videoRepository.save(video);
-        logger.info("Video guardado con ID: {}", video.getId());
 
-        // Llamar a Google Generative AI para iniciar la generación
-        GoogleVideoGenerationResponse response = googleAiService.generateVideo(request.getPrompt());
+        logger.info("Video creado con id={}, llamando a Veo 2...", video.getId());
 
-        if ("ERROR".equals(response.getStatus())) {
-            // Si hay error, actualizar el video
-            video.setStatus(VideoStatus.ERROR);
-            video.setErrorMessage(response.getErrorMessage());
+        try {
+            VideoGenerationPort.GenerationResult result = videoGenerationPort.startGeneration(
+                    new VideoGenerationPort.GenerationRequest(request.getPrompt(), 5, "16:9")
+            );
+            video.setStatus(VideoStatus.PROCESSING);
+            video.setGoogleJobId(result.jobId());
             video.setUpdatedAt(LocalDateTime.now());
-            video = videoRepository.save(video);
-            logger.error("Error al generar video: {}", response.getErrorMessage());
-            throw new RuntimeException("Error al generar video: " + response.getErrorMessage());
+            logger.info("Video id={} en PROCESSING, jobId={}", video.getId(), result.jobId());
+        } catch (VideoGenerationException e) {
+            video.setStatus(VideoStatus.ERROR);
+            video.setErrorMessage(e.getMessage());
+            video.setUpdatedAt(LocalDateTime.now());
+            videoRepository.save(video);
+            logger.error("Error al iniciar generación para video id={}: {}", video.getId(), e.getMessage());
+            throw e;
         }
 
-        // Actualizar el video con el jobId y status de Google
-        video.setStatus(VideoStatus.PROCESSING);
-        video.setGoogleJobId(response.getJobId());
-        video.setUpdatedAt(LocalDateTime.now());
-        video = videoRepository.save(video);
-
-        logger.info("Video en procesamiento con jobId: {}", response.getJobId());
-
-        return video;
+        return videoRepository.save(video);
     }
 }
-
