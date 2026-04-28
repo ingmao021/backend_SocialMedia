@@ -72,7 +72,10 @@ public class AuthController {
 
         if (auth == null || !(auth.getPrincipal() instanceof CustomUserDetails principal)) {
             log.warn("Intento de acceso /me sin autenticación");
-            throw new UnauthorizedException("Usuario no autenticado");
+            // Devuelve 401 explícito en vez de lanzar excepción
+            return ResponseEntity.status(401).body(Map.of(
+                "error", "Usuario no autenticado"
+            ));
         }
 
         User user = getCurrentUserUseCase.execute(principal.getUserId());

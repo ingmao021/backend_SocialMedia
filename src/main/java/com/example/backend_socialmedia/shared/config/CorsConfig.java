@@ -8,6 +8,8 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 /**
  * Configuración CORS para el backend.
@@ -23,25 +25,36 @@ public class CorsConfig {
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
+    @Value("${app.cors.allowed-origins:}")
+    private String corsAllowedOrigins;
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // Solo permitir frontend específico
-        config.setAllowedOrigins(List.of(frontendUrl));
+        // Build allowed origin patterns. Allow either a configured list (app.cors.allowed-origins)
+        // or fall back to sensible defaults (frontendUrl, localhost, vercel)
+        List<String> allowedPatterns;
+        if (corsAllowedOrigins != null && !corsAllowedOrigins.isBlank()) {
+            allowedPatterns = Arrays.stream(corsAllowedOrigins.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .collect(Collectors.toList());
+        } else {
+            allowedPatterns = List.of(
+                    frontendUrl,
+                    "http://localhost:*",
+                    "https://*.vercel.app"
+            );
+        }
+
+        config.setAllowedOriginPatterns(allowedPatterns);
 
         // Métodos HTTP permitidos
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
 
-        // Headers permitidos en requests
-        config.setAllowedHeaders(List.of(
-                "Authorization",
-                "Content-Type",
-                "Accept",
-                "X-Requested-With",
-                "Origin"
-        ));
+        // Headers permitidos en requests (permitir todos para evitar problemas con encabezados personalizados)
+        config.setAllowedHeaders(List.of("*"));
 
         // Headers expuestos en responses
         config.setExposedHeaders(List.of("Authorization", "X-Total-Count"));

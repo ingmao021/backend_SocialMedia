@@ -1,5 +1,11 @@
 server:
   port: ${PORT:8080}
+  servlet:
+    session:
+      cookie:
+        # En desarrollo permitimos cookies sin secure para localhost
+        same-site: None
+        secure: false
 
 spring:
   datasource:
@@ -58,6 +64,10 @@ spring:
 app:
   frontend-url: ${FRONTEND_URL:https://backend-social-media-ai.vercel.app}
   backend-url: ${BACKEND_URL:https://backend-socialmedia-ixsm.onrender.com}
+  cors:
+    # Lista separada por comas de orígenes permitidos (patterns). Ejemplo:
+    # app.cors.allowed-origins: http://localhost:5173,https://backend-social-media-ai.vercel.app
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:*}
 
   # JWT - Access Token (corta duración: 15 minutos)
   jwt-secret: ${JWT_SECRET}
