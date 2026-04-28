@@ -9,6 +9,15 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
+/**
+ * Configuración CORS para el backend.
+ *
+ * NOTA IMPORTANTE:
+ * - NO aplicar CORS a Google OAuth (Google maneja esto)
+ * - Solo aplicar a endpoints /api/** del backend
+ * - Las cookies httpOnly se configuran automáticamente
+ * - Credentials: true permite envío de cookies en requests CORS
+ */
 @Configuration
 public class CorsConfig {
 
@@ -18,15 +27,39 @@ public class CorsConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
+
+        // Solo permitir frontend específico
         config.setAllowedOrigins(List.of(frontendUrl));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
-        config.setExposedHeaders(List.of("Authorization"));
+
+        // Métodos HTTP permitidos
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+
+        // Headers permitidos en requests
+        config.setAllowedHeaders(List.of(
+                "Authorization",
+                "Content-Type",
+                "Accept",
+                "X-Requested-With",
+                "Origin"
+        ));
+
+        // Headers expuestos en responses
+        config.setExposedHeaders(List.of("Authorization", "X-Total-Count"));
+
+        // Permitir credentials (cookies httpOnly)
         config.setAllowCredentials(true);
+
+        // TTL del preflight cache (segundos)
         config.setMaxAge(3600L);
 
+        // Registro de rutas
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
+
+        // CORS solo para API endpoints
+        source.registerCorsConfiguration("/api/**", config);
+
         return source;
     }
 }
+
+

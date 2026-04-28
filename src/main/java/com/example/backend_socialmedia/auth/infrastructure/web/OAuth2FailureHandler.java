@@ -13,17 +13,25 @@ import org.springframework.security.web.authentication.SimpleUrlAuthenticationFa
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Manejador de fallos en autenticación OAuth2
- * Devuelve errores en formato JSON con mensajes claros
+ * Manejador de fallos en autenticación OAuth2.
+ *
+ * Responsabilidades:
+ * - Capturar excepciones durante OAuth2
+ * - Mapear errores específicos de Google
+ * - Redirigir con mensaje de error
+ * - Logging estructurado
  */
 @Component
 public class OAuth2FailureHandler extends SimpleUrlAuthenticationFailureHandler {
 
     private static final Logger log = LoggerFactory.getLogger(OAuth2FailureHandler.class);
+
     private final ObjectMapper objectMapper;
 
     @Value("${app.frontend-url}")
@@ -39,56 +47,99 @@ public class OAuth2FailureHandler extends SimpleUrlAuthenticationFailureHandler 
                                         AuthenticationException exception)
             throws IOException, ServletException {
 
-        log.error("OAuth2 autenticación fallida: {}", exception.getMessage(), exception);
+        log.error("OAuth2 autenticación fallida", exception);
 
-        response.setContentType("application/json");
-        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        // Mapear error específico de OAuth2
+        ErrorDetails errorDetails = mapOAuth2Error(exception);
 
-        String errorCode = "AUTHENTICATION_FAILED";
-        String errorMessage = "Credenciales inválidas o expiradas";
-        String errorDetails = exception.getMessage();
+        log.warn("Error OAuth2: code={}, message={}, details={}",
+                errorDetails.code, errorDetails.message, errorDetails.details);
 
-        // Identificar el tipo específico de error
+        // Redirigir al frontend con detalles del error
+        String errorMessage = URLEncoder.encode(errorDetails.message, StandardCharsets.UTF_8);
+        String errorDetails_encoded = URLEncoder.encode(errorDetails.details, StandardCharsets.UTF_8);
+        String redirectUrl = String.format("%s/auth/callback?error=%s&message=%s&details=%s",
+                frontendUrl,
+                errorDetails.code,
+                errorMessage,
+                errorDetails_encoded);
+
+        getRedirectStrategy().sendRedirect(request, response, redirectUrl);
+    }
+
+    /**
+     * Mapea excepciones de OAuth2 a mensajes de error legibles
+     */
+    private ErrorDetails mapOAuth2Error(AuthenticationException exception) {
+        String code = "AUTHENTICATION_FAILED";
+        String message = "Error de autenticación";
+        String details = exception.getMessage();
+
         if (exception instanceof OAuth2AuthenticationException oauthException) {
-            String errorParameter = oauthException.getError().getErrorCode();
+            String errorCode = oauthException.getError().getErrorCode();
+            String errorDescription = oauthException.getError().getDescription();
 
-            switch (errorParameter) {
-                case "invalid_grant" -> {
-                    errorCode = "INVALID_CREDENTIALS";
-                    errorMessage = "Las credenciales de Google son inválidas o han expirado";
-                    errorDetails = "Debes iniciar sesión nuevamente en Google";
-                }
-                case "access_denied" -> {
-                    errorCode = "ACCESS_DENIED";
-                    errorMessage = "Acceso denegado. Verifica los permisos en tu cuenta de Google";
-                    errorDetails = "Revisa los permisos solicitados y vuelve a intentar";
-                }
-                case "invalid_client" -> {
-                    errorCode = "INVALID_CLIENT";
-                    errorMessage = "Configuración inválida del cliente OAuth2";
-                    errorDetails = "Verifica que GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET sean correctos";
-                }
-                case "unauthorized_client" -> {
-                    errorCode = "UNAUTHORIZED_CLIENT";
-                    errorMessage = "El cliente no está autorizado";
-                    errorDetails = "Verifica la configuración de OAuth en Google Cloud Console";
-                }
-                case "server_error" -> {
-                    errorCode = "SERVER_ERROR";
-                    errorMessage = "Error en el servidor de autenticación";
-                    errorDetails = "Intenta nuevamente más tarde";
-                }
-            }
+            return switch (errorCode) {
+                case "invalid_grant" -> new ErrorDetails(
+                        "INVALID_CREDENTIALS",
+                        "Las credenciales de Google son inválidas",
+                        "Debes volver a iniciar sesión en Google. Revoca el acceso en myaccount.google.com/permissions"
+                );
+                case "access_denied" -> new ErrorDetails(
+                        "ACCESS_DENIED",
+                        "Acceso denegado",
+                        "Debes autorizar el acceso a tu cuenta de Google"
+                );
+                case "invalid_client" -> new ErrorDetails(
+                        "INVALID_CLIENT",
+                        "Configuración inválida del cliente OAuth",
+                        "El GOOGLE_CLIENT_ID o GOOGLE_CLIENT_SECRET son incorrectos"
+                );
+                case "unauthorized_client" -> new ErrorDetails(
+                        "UNAUTHORIZED_CLIENT",
+                        "Cliente no autorizado",
+                        "Verifica que la configuración de OAuth coincida con Google Cloud Console"
+                );
+                case "invalid_scope" -> new ErrorDetails(
+                        "INVALID_SCOPE",
+                        "Permisos inválidos",
+                        "Los scopes solicitados no son válidos"
+                );
+                case "server_error" -> new ErrorDetails(
+                        "SERVER_ERROR",
+                        "Error en el servidor de Google",
+                        "Los servidores de Google están experimentando problemas. Intenta más tarde"
+                );
+                case "temporarily_unavailable" -> new ErrorDetails(
+                        "SERVICE_UNAVAILABLE",
+                        "Servicio no disponible",
+                        "Google está temporalmente inaccesible. Intenta más tarde"
+                );
+                default -> new ErrorDetails(
+                        "OAUTH2_ERROR",
+                        "Error de autenticación con Google",
+                        errorDescription != null ? errorDescription : errorCode
+                );
+            };
         }
 
-        Map<String, Object> errorBody = new HashMap<>();
-        errorBody.put("error", errorCode);
-        errorBody.put("message", errorMessage);
-        errorBody.put("details", errorDetails);
-        errorBody.put("timestamp", System.currentTimeMillis());
-        errorBody.put("path", request.getRequestURI());
+        // Error genérico no-OAuth2
+        return new ErrorDetails(code, message, details);
+    }
 
-        response.getWriter().write(objectMapper.writeValueAsString(errorBody));
+    /**
+     * Clase para encapsular detalles de error
+     */
+    private static class ErrorDetails {
+        String code;
+        String message;
+        String details;
+
+        ErrorDetails(String code, String message, String details) {
+            this.code = code;
+            this.message = message;
+            this.details = details;
+        }
     }
 }
 

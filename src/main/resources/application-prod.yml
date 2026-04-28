@@ -90,8 +90,8 @@ spring:
     active: prod
 
 app:
-  frontend-url: ${FRONTEND_URL:http://localhost:3000}
-  backend-url: ${BACKEND_URL:http://localhost:8080}
+  frontend-url: ${FRONTEND_URL:https://backend-social-media-ai.vercel.app}
+  backend-url: ${BACKEND_URL:https://backend-socialmedia-ixsm.onrender.com}
   jwt-secret: ${JWT_SECRET}
   jwt-expiration: ${JWT_EXPIRATION:86400000}
 

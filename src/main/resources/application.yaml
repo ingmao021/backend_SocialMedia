@@ -52,12 +52,29 @@ spring:
             user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
             user-name-attribute: sub
 
+# ============================================================================
+# CONFIGURACIÓN DE APLICACIÓN
+# ============================================================================
 app:
-  frontend-url: ${FRONTEND_URL:http://localhost:3000}
-  backend-url: ${BACKEND_URL:http://localhost:8080}
-  jwt-secret: ${JWT_SECRET}
-  jwt-expiration: ${JWT_EXPIRATION:86400000}
+  frontend-url: ${FRONTEND_URL:https://backend-social-media-ai.vercel.app}
+  backend-url: ${BACKEND_URL:https://backend-socialmedia-ixsm.onrender.com}
 
+  # JWT - Access Token (corta duración: 15 minutos)
+  jwt-secret: ${JWT_SECRET}
+  jwt-expiration: ${JWT_EXPIRATION:900000}
+
+  # JWT - Refresh Token (larga duración: 7 días)
+  jwt-refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
+
+  # Configuración de cookies seguras
+  # En desarrollo: secure=false
+  # En producción: secure=true (requiere HTTPS)
+  cookie-secure: ${COOKIE_SECURE:true}
+  cookie-same-site: ${COOKIE_SAME_SITE:Strict}
+
+# ============================================================================
+# VERTEX AI / GENERACIÓN DE VÍDEOS
+# ============================================================================
 vertex-ai:
   project-id: ${GOOGLE_CLOUD_PROJECT_ID}
   client-email: ${GOOGLE_CLOUD_CLIENT_EMAIL}
@@ -81,9 +98,14 @@ youtube:
     requests-per-minute: ${YOUTUBE_RATE_LIMIT_RPM:100}
     quota-units-per-day: ${YOUTUBE_QUOTA_UNITS_DAY:10000}
 
+# ============================================================================
+# LOGGING
+# ============================================================================
 logging:
   level:
     com.example.backend_socialmedia: INFO
+    com.example.backend_socialmedia.auth: DEBUG
+    org.springframework.security.oauth2: DEBUG
     org.springframework.security: WARN
     org.springframework.web: WARN
     org.hibernate.SQL: WARN

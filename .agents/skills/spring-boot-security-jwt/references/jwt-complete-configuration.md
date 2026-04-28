@@ -159,7 +159,7 @@ public class SecurityConfig {
         return List.of(
             "http://localhost:3000",
             "http://localhost:4200",
-            "https://yourdomain.com"
+            "https://backend-social-media-ai.vercel.app"
         );
     }
 }

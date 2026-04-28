@@ -46,32 +46,32 @@ public class SecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .csrf(csrf -> csrf.disable())
+                // Configuración de cookies de sesión
+                .httpBasic(basic -> basic.disable())
                 .authorizeHttpRequests(auth -> auth
+                        // Endpoints públicos
                         .requestMatchers(
                                 "/",
                                 "/health",
                                 "/api/auth/status",
                                 "/api/auth/google-url",
-                                "/api/auth/callback/token",
+                                "/api/auth/debug/token",  // Solo desarrollo
                                 "/login/**",
                                 "/oauth2/**",
-                                "/error",
-                                "/hola",
-                                "/api/check",
-                                "/api/status"
+                                "/error"
                         ).permitAll()
+                        // Todos los demás endpoints requieren autenticación
                         .anyRequest().authenticated()
                 )
+                // Configuración OAuth2 Login
                 .oauth2Login(oauth2 -> oauth2
-                        // Manejador de éxito en autenticación
                         .successHandler(oAuth2SuccessHandler)
-                        // Manejador de fallos en autenticación
                         .failureHandler(oAuth2FailureHandler)
-                        // Personalizar parámetros de autorización (access_type=offline, prompt=consent)
                         .authorizationEndpoint(endpoint -> endpoint
                                 .authorizationRequestResolver(authorizationRequestResolver)
                         )
                 )
+                // JWT authentication filter
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

@@ -829,7 +829,7 @@ public class CorsConfig {
         // Allowed origins (configure based on environment)
         configuration.setAllowedOriginPatterns(Arrays.asList(
             "http://localhost:*",
-            "https://*.yourdomain.com"
+            "https://backend-social-media-ai.vercel.app"
         ));
 
         // Allowed HTTP methods
