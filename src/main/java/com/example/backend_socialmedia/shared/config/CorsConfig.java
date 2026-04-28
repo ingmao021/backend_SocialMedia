@@ -8,71 +8,38 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
-import java.util.Arrays;
-import java.util.stream.Collectors;
 
-/**
- * Configuración CORS para el backend.
- *
- * NOTA IMPORTANTE:
- * - NO aplicar CORS a Google OAuth (Google maneja esto)
- * - Solo aplicar a endpoints /api/** del backend
- * - Las cookies httpOnly se configuran automáticamente
- * - Credentials: true permite envío de cookies en requests CORS
- */
 @Configuration
 public class CorsConfig {
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
-    @Value("${app.cors.allowed-origins:}")
-    private String corsAllowedOrigins;
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // Build allowed origin patterns. Allow either a configured list (app.cors.allowed-origins)
-        // or fall back to sensible defaults (frontendUrl, localhost, vercel)
-        List<String> allowedPatterns;
-        if (corsAllowedOrigins != null && !corsAllowedOrigins.isBlank()) {
-            allowedPatterns = Arrays.stream(corsAllowedOrigins.split(","))
-                    .map(String::trim)
-                    .filter(s -> !s.isEmpty())
-                    .collect(Collectors.toList());
-        } else {
-            allowedPatterns = List.of(
-                    frontendUrl,
-                    "http://localhost:*",
-                    "https://*.vercel.app"
-            );
-        }
+        // 1. Orígenes permitidos: URL exacta de Vercel y Localhost para desarrollo
+        // IMPORTANTE: frontendUrl NO debe tener "/" al final
+        config.setAllowedOrigins(List.of(
+                frontendUrl,
+                "http://localhost:5173",
+                "http://localhost:3000"
+        ));
 
-        config.setAllowedOriginPatterns(allowedPatterns);
-
-        // Métodos HTTP permitidos
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-
-        // Headers permitidos en requests (permitir todos para evitar problemas con encabezados personalizados)
-        config.setAllowedHeaders(List.of("*"));
-
-        // Headers expuestos en responses
-        config.setExposedHeaders(List.of("Authorization", "X-Total-Count"));
-
-        // Permitir credentials (cookies httpOnly)
+        // 2. Permitir que el navegador envíe Cookies (JWT)
         config.setAllowCredentials(true);
 
-        // TTL del preflight cache (segundos)
+        // 3. Métodos y Headers
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"));
+        config.setExposedHeaders(List.of("Set-Cookie"));
+
         config.setMaxAge(3600L);
 
-        // Registro de rutas
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-
-        // CORS solo para API endpoints
         source.registerCorsConfiguration("/api/**", config);
 
         return source;
     }
 }
-
-
