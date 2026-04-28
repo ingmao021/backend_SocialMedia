@@ -52,6 +52,7 @@ public class SecurityConfig {
                                 "/health",
                                 "/api/auth/status",
                                 "/api/auth/google-url",
+                                "/api/auth/callback/token",
                                 "/login/**",
                                 "/oauth2/**",
                                 "/error",

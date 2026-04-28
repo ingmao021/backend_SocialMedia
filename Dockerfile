@@ -21,7 +21,7 @@ COPY src src
 RUN ./mvnw clean package -DskipTests
 
 
-#   STAGE 2: Imagen final
+#   STAGE 2: Imagen final optimizada
 
 FROM eclipse-temurin:21-jre
 
@@ -33,9 +33,26 @@ COPY --from=builder /app/target/*.jar app.jar
 # Exponer el puerto (Render lo ignora, pero es buena práctica)
 EXPOSE 8080
 
-# Variables de entorno recomendadas
-ENV JAVA_OPTS="-Xms256m -Xmx512m"
+# Variables de entorno optimizadas para Render
 ENV PORT=8080
+ENV WEB_CONCURRENCY=1  # Render maneja el scaling automáticamente
 
-# Comando de inicio
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar --server.port=${PORT:-8080} --spring.profiles.active=prod"]
+# JVM flags optimizados para startup rápido y memoria eficiente
+ENV JAVA_OPTS="\
+  -XX:+UseContainerSupport \
+  -XX:MaxRAMPercentage=75.0 \
+  -XX:InitialRAMPercentage=50.0 \
+  -XX:+UseG1GC \
+  -XX:MaxGCPauseMillis=100 \
+  -XX:+UseStringDeduplication \
+  -XX:+OptimizeStringConcat \
+  -Djava.security.egd=file:/dev/./urandom \
+  -Dspring.profiles.active=prod \
+  -Dserver.port=${PORT}"
+
+# Health check para Render
+HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:${PORT}/api/auth/status || exit 1
+
+# Comando de inicio optimizado
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

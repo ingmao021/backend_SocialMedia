@@ -1,5 +1,15 @@
 server:
   port: ${PORT:8080}
+  tomcat:
+    threads:
+      max: 200  # Optimizado para Render's multi-threading
+      min-spare: 10
+    connection-timeout: 20000
+    keep-alive-timeout: 20000
+    max-http-header-size: 8192
+    max-swallow-size: 2MB
+    accept-count: 100
+    max-connections: 8192
 
 spring:
   datasource:
@@ -8,11 +18,18 @@ spring:
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
+      # Configuración optimizada para producción
+      maximum-pool-size: 20  # Más conexiones para alta concurrencia
+      minimum-idle: 5
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1200000
+      leak-detection-threshold: 60000
+      validation-timeout: 5000
+      # Configuración adicional para estabilidad
+      auto-commit: true
+      isolation-level: TRANSACTION_READ_COMMITTED
+      driver-class-name: org.postgresql.Driver
 
   flyway:
     enabled: true
@@ -20,6 +37,9 @@ spring:
     baseline-on-migrate: false
     validate-on-migrate: true
     out-of-order: false
+    # Optimizaciones para producción
+    ignore-missing-migrations: false
+    ignore-ignored-migrations: false
 
   jpa:
     hibernate:
@@ -28,7 +48,18 @@ spring:
     open-in-view: false
     properties:
       hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
         default_batch_fetch_size: 20
+        # Optimizaciones de producción
+        jdbc:
+          batch_size: 25
+          order_inserts: true
+          order_updates: true
+        generate_statistics: false
+        # Cache de segundo nivel (deshabilitado para simplicidad)
+        cache:
+          use_second_level_cache: false
+          use_query_cache: false
 
   security:
     oauth2:
@@ -51,6 +82,12 @@ spring:
             token-uri: https://oauth2.googleapis.com/token
             user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
             user-name-attribute: sub
+
+  # Configuraciones adicionales para producción
+  main:
+    banner-mode: off  # Deshabilitar banner de Spring Boot
+  profiles:
+    active: prod
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
@@ -83,8 +120,49 @@ youtube:
 
 logging:
   level:
+    # Logging optimizado para producción
     com.example.backend_socialmedia: INFO
     org.springframework.security: WARN
     org.springframework.web: WARN
     org.hibernate.SQL: WARN
     com.google.auth: WARN
+    # Reducir ruido de dependencias
+    org.springframework.boot: WARN
+    org.apache.catalina: WARN
+    org.apache.coyote: WARN
+    org.apache.tomcat: WARN
+    com.zaxxer.hikari: INFO
+    org.flywaydb: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  # Logging a archivo en producción (opcional)
+  # file:
+  #   name: logs/backend-socialmedia.log
+  #   max-size: 10MB
+  #   max-history: 30
+
+# Configuraciones específicas de JVM para Render
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+  health:
+    diskspace:
+      enabled: false  # Deshabilitar en contenedores
+  metrics:
+    export:
+      jmx:
+        enabled: true
+
+# Configuración de métricas para monitoreo
+springdoc:
+  api-docs:
+    enabled: false  # Deshabilitar en producción por seguridad
+  swagger-ui:
+    enabled: false  # Deshabilitar en producción por seguridad

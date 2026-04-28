@@ -78,14 +78,9 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
             log.info("Usuario autenticado: id={}, email={}", user.getId(), user.getEmail());
 
-            String jwt = jwtUtils.generateToken(user.getId(), user.getEmail());
-
-            // Redirigir al frontend con el token en la URL para que el SPA lo capture
-            String redirectUrl = UriComponentsBuilder
-                    .fromUriString(frontendUrl + "/auth/callback")
-                    .queryParam("token", jwt)
-                    .build()
-                    .toUriString();
+            // Redirigir al frontend a la página de callback
+            // El frontend llamará a /api/auth/callback/token para obtener el JWT de forma segura
+            String redirectUrl = frontendUrl + "/auth/callback";
 
             clearAuthenticationAttributes(request);
             getRedirectStrategy().sendRedirect(request, response, redirectUrl);

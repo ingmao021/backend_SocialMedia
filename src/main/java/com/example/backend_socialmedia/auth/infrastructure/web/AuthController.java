@@ -79,4 +79,45 @@ public class AuthController {
             return ResponseEntity.status(401).body(Map.of("valid", false, "error", e.getMessage()));
         }
     }
+
+    /**
+     * Endpoint alternativo para obtener token JWT sin redirigir al frontend
+     * Usado por el frontend después de completar OAuth2 con Google
+     * Query Params: none (el usuario ya está autenticado en sesión)
+     *
+     * Respuesta: { "token": "JWT", "user": {...} }
+     */
+    @GetMapping("/callback/token")
+    public ResponseEntity<Map<String, Object>> getCallbackToken() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+        // Validar que el usuario esté autenticado
+        if (auth == null || !(auth.getPrincipal() instanceof CustomUserDetails principal)) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "success", false,
+                    "error", "No autenticado. Debe completar OAuth2 primero."
+            ));
+        }
+
+        try {
+            User user = getCurrentUserUseCase.execute(principal.getUserId());
+            String jwt = jwtUtils.generateToken(user.getId(), user.getEmail());
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "token", jwt,
+                    "user", Map.of(
+                            "id", user.getId(),
+                            "email", user.getEmail(),
+                            "name", user.getName(),
+                            "picture", user.getPicture()
+                    )
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "error", "Error generando token: " + e.getMessage()
+            ));
+        }
+    }
 }
