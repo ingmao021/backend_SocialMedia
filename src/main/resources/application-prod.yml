@@ -92,8 +92,6 @@ spring:
   # Configuraciones adicionales para producción
   main:
     banner-mode: off  # Deshabilitar banner de Spring Boot
-  profiles:
-    active: prod
 
 app:
   frontend-url: ${FRONTEND_URL:https://backend-social-media-ai.vercel.app}
