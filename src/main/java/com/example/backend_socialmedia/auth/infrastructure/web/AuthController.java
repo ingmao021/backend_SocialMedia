@@ -43,7 +43,7 @@ public class AuthController {
     @Value("${app.cookie-secure:true}")
     private boolean cookieSecure;
 
-    @Value("${app.cookie-same-site:Strict}")
+    @Value("${app.cookie-same-site:None}")
     private String cookieSameSite;
 
     public AuthController(GetCurrentUserUseCase getCurrentUserUseCase, JwtUtils jwtUtils) {

@@ -51,7 +51,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     @Value("${app.cookie-secure:true}")
     private boolean cookieSecure;
 
-    @Value("${app.cookie-same-site:Strict}")
+    @Value("${app.cookie-same-site:None}")
     private String cookieSameSite;
 
     public OAuth2SuccessHandler(GoogleAuthUseCase googleAuthUseCase,

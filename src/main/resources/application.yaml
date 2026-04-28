@@ -80,7 +80,7 @@ app:
   # En desarrollo: secure=false
   # En producción: secure=true (requiere HTTPS)
   cookie-secure: ${COOKIE_SECURE:true}
-  cookie-same-site: ${COOKIE_SAME_SITE:Strict}
+  cookie-same-site: ${COOKIE_SAME_SITE:None}
 
 # ============================================================================
 # VERTEX AI / GENERACIÓN DE VÍDEOS
