@@ -1,0 +1,18 @@
+target/
+.git/
+.gitignore
+*.md
+*.iml
+.idea/
+.vscode/
+.env
+.env.*
+!.env.example
+node_modules/
+
+# Secrets
+service-account-key.json
+*-credentials.json
+*.pem
+*.key
+gcp-key*.json

@@ -1,40 +1,36 @@
-HELP.md
+# ── Build artifacts ──
 target/
-.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+*.class
 
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-
-### IntelliJ IDEA ###
-.idea
-*.iws
+# ── IDE ──
+.idea/
 *.iml
-*.ipr
-
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
-
-### VS Code ###
 .vscode/
+*.swp
+*.swo
 
-### Secrets ###
+# ── OS ──
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Environment ──
 .env
-*.env
-client_secret.json
-src/main/resources/client_secret*.json
-src/main/resources/application-prod.yaml
+.env.local
+.env.*.local
+
+# ── Secrets — CRÍTICO ──
+service-account-key.json
+*-credentials.json
+*.pem
+*.key
+gcp-key*.json
+
+# ── Maven wrapper ──
+# NO descomentar las siguientes líneas — .mvn/, mvnw y mvnw.cmd
+# DEBEN estar versionados para que cualquier dev pueda buildear sin
+# tener Maven instalado.
+
+# ── Logs ──
+*.log
+logs/

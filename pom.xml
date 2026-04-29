@@ -9,15 +9,14 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.example</groupId>
-    <artifactId>backend_SocialMedia</artifactId>
+    <groupId>com.socialvideo</groupId>
+    <artifactId>social-video-backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>backend_SocialMedia</name>
-    <description>backend_SocialMedia</description>
+    <name>social-video-backend</name>
+    <description>AI Video Generator Backend — Veo 3.1 Lite</description>
 
     <properties>
         <java.version>21</java.version>
-        <jackson-bom.version>2.21.1</jackson-bom.version>
     </properties>
 
     <dependencies>
@@ -33,22 +32,16 @@
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
 
-        <!-- Validaciones (@Valid, @NotNull, etc.) -->
+        <!-- Validaciones (@Valid, @NotBlank, etc.) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
-        <!-- Spring Security -->
+        <!-- Spring Security (sin oauth2-client) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
-        </dependency>
-
-        <!-- OAuth2 con Google -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-oauth2-client</artifactId>
         </dependency>
 
         <!-- PostgreSQL -->
@@ -58,7 +51,7 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Flyway (migraciones de base de datos) -->
+        <!-- Flyway -->
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
@@ -70,20 +63,18 @@
             <version>11.8.2</version>
         </dependency>
 
-        <!-- JWT -->
+        <!-- JWT (JJWT) -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
             <version>0.12.6</version>
         </dependency>
-
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-impl</artifactId>
             <version>0.12.6</version>
             <scope>runtime</scope>
         </dependency>
-
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-jackson</artifactId>
@@ -91,42 +82,14 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Google Cloud SDK para API de Generative AI -->
+        <!-- Google API Client — GoogleIdTokenVerifier -->
         <dependency>
-            <groupId>com.google.http-client</groupId>
-            <artifactId>google-http-client-jackson2</artifactId>
-            <version>1.43.3</version>
+            <groupId>com.google.api-client</groupId>
+            <artifactId>google-api-client</artifactId>
+            <version>2.7.0</version>
         </dependency>
 
-        <!-- Commons IO para manejo de archivos -->
-        <dependency>
-            <groupId>commons-io</groupId>
-            <artifactId>commons-io</artifactId>
-            <version>2.15.1</version>
-        </dependency>
-
-        <!-- OkHttp para HTTP client -->
-        <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
-            <version>4.12.0</version>
-        </dependency>
-
-        <!-- Jackson para JSON -->
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>2.21.1</version>
-        </dependency>
-
-        <!-- Google YouTube Data API v3 - usando google-http-client en su lugar -->
-        <!-- <dependency>
-            <groupId>com.google.apis</groupId>
-            <artifactId>google-api-services-youtube</artifactId>
-            <version>v3-rev20210101-1.32.1</version>
-        </dependency> -->
-
-        <!-- Google HTTP Client -->
+        <!-- Google HTTP Client (Gson transport) -->
         <dependency>
             <groupId>com.google.http-client</groupId>
             <artifactId>google-http-client-gson</artifactId>
@@ -154,18 +117,28 @@
             <optional>true</optional>
         </dependency>
 
+        <!-- Carga automática de .env en desarrollo local -->
+        <dependency>
+            <groupId>me.paulschwarz</groupId>
+            <artifactId>spring-dotenv</artifactId>
+            <version>4.0.0</version>
+        </dependency>
+
         <!-- Tests -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
-
-        <!-- Carga automática de .env en desarrollo local -->
         <dependency>
-            <groupId>me.paulschwarz</groupId>
-            <artifactId>spring-dotenv</artifactId>
-            <version>4.0.0</version>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
@@ -182,6 +155,13 @@
                             <version>1.18.30</version>
                         </path>
                     </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>-XX:+EnableDynamicAgentLoading</argLine>
                 </configuration>
             </plugin>
             <plugin>

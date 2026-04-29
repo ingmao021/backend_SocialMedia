@@ -1,0 +1,36 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: false
+
+app:
+  jwt:
+    secret: test-secret-key-that-is-at-least-32-bytes-long-for-hmac-sha256
+    expiration-ms: 86400000
+  google:
+    client-id: fake-google-client-id.apps.googleusercontent.com
+  gcp:
+    project-id: fake-project
+    location: us-central1
+    bucket: fake-bucket
+    sa-key-json: '{"type":"service_account","project_id":"fake"}'
+  cors:
+    allowed-origins: http://localhost:5173
+  vertex:
+    veo-model-id: veo-3.1-lite-generate-preview
+    polling-interval-seconds: 999999
+    job-timeout-minutes: 10
+  signed-url:
+    ttl-days: 7
+    avatar-ttl-days: 30
+  video:
+    max-completed: 2
+
+logging:
+  level:
+    root: WARN

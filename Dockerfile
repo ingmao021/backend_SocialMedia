@@ -1,54 +1,39 @@
-
-FROM eclipse-temurin:21-jdk AS builder
+# ──────────────────────────────────────────
+# Stage 1 — Build
+# ──────────────────────────────────────────
+FROM maven:3.9-eclipse-temurin-21 AS build
 
 WORKDIR /app
 
-COPY mvnw .
-COPY .mvn .mvn
+# Cache dependencies first (only re-download when pom.xml changes)
 COPY pom.xml .
+RUN mvn dependency:go-offline -B
 
+# Copy source and build
+COPY src ./src
+RUN mvn clean package -DskipTests -B \
+    && mv target/social-video-backend-*.jar target/app.jar
 
-RUN chmod +x mvnw
+# ──────────────────────────────────────────
+# Stage 2 — Runtime
+# Healthcheck is configured in Render UI
+# (Health Check Path: /health), not here.
+# ──────────────────────────────────────────
+FROM eclipse-temurin:21-jre-alpine
 
-
-RUN ./mvnw dependency:go-offline
-
-
-COPY src src
-
-RUN ./mvnw clean package -DskipTests
-
-
-
-FROM eclipse-temurin:21-jre
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app
 
-COPY --from=builder /app/target/*.jar app.jar
+COPY --from=build /app/target/app.jar app.jar
 
+RUN chown -R appuser:appgroup /app
+USER appuser
 
 EXPOSE 8080
 
-ENV PORT=8080
-
-
-ENV WEB_CONCURRENCY=1
-
-ENV JAVA_OPTS="\
-  -XX:+UseContainerSupport \
-  -XX:MaxRAMPercentage=75.0 \
-  -XX:InitialRAMPercentage=50.0 \
-  -XX:+UseG1GC \
-  -XX:MaxGCPauseMillis=100 \
-  -XX:+UseStringDeduplication \
-  -XX:+OptimizeStringConcat \
-  -Djava.security.egd=file:/dev/./urandom \
-  -Dspring.profiles.active=prod \
-  -Dserver.port=${PORT}"
-
-
-HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:${PORT}/api/auth/status || exit 1
-
-
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+ENTRYPOINT ["java", \
+    "-XX:+UseContainerSupport", \
+    "-XX:MaxRAMPercentage=75.0", \
+    "-Djava.security.egd=file:/dev/./urandom", \
+    "-jar", "app.jar"]
