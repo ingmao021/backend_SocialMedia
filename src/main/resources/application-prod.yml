@@ -1,4 +1,25 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+        temp:
+          use_jdbc_metadata_defaults: false    # ← AGREGA ESTO — evita que Hibernate
+                                               #   haga queries de metadata al arrancar
+                                               #   (resuelve también "Driver unknown")
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false    # ← cambiar a false (BD limpia, no necesitamos baseline)
+
 logging:
   level:
     com.socialvideo: INFO
-    org.springframework: WARN
+    org.springframework: WARN     # ← bajar todo Spring a WARN (menos I/O en logs = más rápido)
+    org.hibernate: WARN
+    org.flywaydb: INFO
