@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record OperationResponse(
+public record OperationResponse(                                                
         String name,
         Boolean done,
         OperationResponseBody response,
