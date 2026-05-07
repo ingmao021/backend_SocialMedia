@@ -19,14 +19,21 @@ public class CorsConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        String origins = appProperties.getCors().getAllowedOrigins();
-        config.setAllowedOrigins(Arrays.asList(origins.split(",")));
+        
+        // Origins configurados según tu solicitud (desarrollo y producción)
+        config.setAllowedOrigins(Arrays.asList(
+            "http://localhost:5173", 
+            "https://backend-socialmedia-ixsm.onrender.com"
+        ));
+        
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedHeaders(List.of("Authorization", "Cache-Control", "Content-Type"));
         config.setExposedHeaders(List.of("Authorization"));
-        config.setAllowCredentials(false); // No cookies, JWT via Authorization header
+        config.setAllowCredentials(true); // Permite credenciales (necesario para algunos flujos)
+        config.setMaxAge(3600L); // Max-Age 3600 segundos (1 hora) para cachear preflight requests
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // Se aplica a TODOS los endpoints
         source.registerCorsConfiguration("/**", config);
         return source;
     }
