@@ -25,7 +25,21 @@ public class VideoStatusPersister {
 
     @Transactional
     public void markAsCompleted(Video video, OperationResponse response) {
-        String gcsUri = response.response().videos().get(0).gcsUri();
+        com.fasterxml.jackson.databind.JsonNode responseNode = response.response();
+        String gcsUri = null;
+        
+        com.fasterxml.jackson.databind.JsonNode uriNode = responseNode.findValue("uri");
+        if (uriNode == null) {
+            uriNode = responseNode.findValue("gcsUri");
+        }
+        
+        if (uriNode != null) {
+            gcsUri = uriNode.asText();
+        } else {
+            log.error("No se encontró 'uri' o 'gcsUri' en la respuesta: {}", responseNode);
+            markAsFailed(video, "Vertex AI no devolvió la URL del video generado");
+            return;
+        }
         
         // Vertex AI Veo 3.1 a veces devuelve el directorio en lugar del archivo exacto.
         // Si no termina en .mp4, le agregamos el nombre del archivo generado (sample_0.mp4)

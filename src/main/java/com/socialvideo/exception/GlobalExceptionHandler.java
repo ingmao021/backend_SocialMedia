@@ -82,11 +82,11 @@ public class GlobalExceptionHandler {
                 .body(new ApiError("VIDEO_GENERATION_ERROR", e.getMessage(), null));
     }
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiError> handleGeneric(Exception e) {
+    @ExceptionHandler(Throwable.class)
+    public ResponseEntity<ApiError> handleGeneric(Throwable e) {
         log.error("Error no manejado", e);
         // Devolver el mensaje real de la excepción para facilitar el debug en Render
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ApiError("INTERNAL_ERROR", "Error interno: " + e.getMessage(), null));
+                .body(new ApiError("INTERNAL_ERROR", "Error interno: " + e.getMessage() + " | Clase: " + e.getClass().getName(), null));
     }
 }

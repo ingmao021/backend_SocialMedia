@@ -73,12 +73,10 @@ public class VideoStatusUpdateJob {
             return;
         }
 
-        if (response.response() != null
-                && response.response().videos() != null
-                && !response.response().videos().isEmpty()) {
+        if (response.response() != null && !response.response().isEmpty()) {
             persister.markAsCompleted(video, response);
         } else {
-            persister.markAsFailed(video, "Vertex AI completó pero no devolvió videos");
+            persister.markAsFailed(video, "Vertex AI completó pero no devolvió datos en 'response'");
         }
     }
 }
