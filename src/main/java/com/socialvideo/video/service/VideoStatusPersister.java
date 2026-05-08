@@ -26,6 +26,16 @@ public class VideoStatusPersister {
     @Transactional
     public void markAsCompleted(Video video, OperationResponse response) {
         String gcsUri = response.response().videos().get(0).gcsUri();
+        
+        // Vertex AI Veo 3.1 a veces devuelve el directorio en lugar del archivo exacto.
+        // Si no termina en .mp4, le agregamos el nombre del archivo generado (sample_0.mp4)
+        if (gcsUri != null && !gcsUri.endsWith(".mp4")) {
+            if (!gcsUri.endsWith("/")) {
+                gcsUri += "/";
+            }
+            gcsUri += "sample_0.mp4";
+        }
+        
         video.setGcsUri(gcsUri);
 
         try {

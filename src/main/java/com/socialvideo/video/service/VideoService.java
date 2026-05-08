@@ -68,6 +68,8 @@ public class VideoService {
 
         video.setVertexOperationName(operationName);
         video = videoRepository.save(video);
+        
+        log.info("Video generado correctamente (estado PROCESSING): id={} prompt='{}'", video.getId(), video.getPrompt());
 
         return toVideoResponse(video);
     }

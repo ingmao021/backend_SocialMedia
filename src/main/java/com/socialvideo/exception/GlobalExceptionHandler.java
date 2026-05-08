@@ -85,7 +85,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleGeneric(Exception e) {
         log.error("Error no manejado", e);
+        // Devolver el mensaje real de la excepción para facilitar el debug en Render
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ApiError("INTERNAL_ERROR", "Error interno del servidor", null));
+                .body(new ApiError("INTERNAL_ERROR", "Error interno: " + e.getMessage(), null));
     }
 }
