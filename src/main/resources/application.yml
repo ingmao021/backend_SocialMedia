@@ -56,7 +56,7 @@ app:
     ttl-days: 7
     avatar-ttl-days: 30
   video:
-    max-completed: 2
+    max-completed: 9999  # Quota desactivada temporalmente
 
 logging:
   level:
