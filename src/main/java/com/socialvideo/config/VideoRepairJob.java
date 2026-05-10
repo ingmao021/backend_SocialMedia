@@ -13,11 +13,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
- * One-time repair job that runs at startup.
- * Finds videos stuck in PROCESSING state (due to the previous polling bug)
+ * Repair job that runs at startup.
+ * Finds videos stuck in PROCESSING or prematurely marked FAILED
  * and checks GCS to see if the video file actually exists.
  * If found, marks the video as COMPLETED with a valid signed URL.
  */
@@ -28,23 +29,26 @@ public class VideoRepairJob {
 
     private final VideoRepository videoRepository;
     private final GcsService gcsService;
-    private final com.socialvideo.config.AppProperties appProperties;
+    private final AppProperties appProperties;
 
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
     public void repairStuckVideos() {
         try {
-            List<Video> stuckVideos = videoRepository.findByStatus(VideoStatus.PROCESSING);
+            // Collect both PROCESSING and FAILED videos (FAILED may have files in GCS)
+            List<Video> candidates = new ArrayList<>();
+            candidates.addAll(videoRepository.findByStatus(VideoStatus.PROCESSING));
+            candidates.addAll(videoRepository.findByStatus(VideoStatus.FAILED));
 
-            if (stuckVideos.isEmpty()) {
-                log.info("[REPAIR] No stuck PROCESSING videos found");
+            if (candidates.isEmpty()) {
+                log.info("[REPAIR] No PROCESSING or FAILED videos to repair");
                 return;
             }
 
-            log.info("[REPAIR] Found {} videos stuck in PROCESSING state. Checking GCS...", stuckVideos.size());
+            log.info("[REPAIR] Found {} candidate videos (PROCESSING + FAILED). Checking GCS...", candidates.size());
 
             int repaired = 0;
-            for (Video video : stuckVideos) {
+            for (Video video : candidates) {
                 try {
                     if (repairSingleVideo(video)) {
                         repaired++;
@@ -54,18 +58,24 @@ public class VideoRepairJob {
                 }
             }
 
-            log.info("[REPAIR] Repair complete: {}/{} videos fixed", repaired, stuckVideos.size());
+            log.info("[REPAIR] Repair complete: {}/{} videos fixed", repaired, candidates.size());
         } catch (Exception e) {
             log.warn("[REPAIR] Could not run video repair: {}", e.getMessage());
         }
     }
 
     private boolean repairSingleVideo(Video video) {
+        // Skip if already has a valid gcsUri and signedUrl
+        if (video.getStatus() == VideoStatus.COMPLETED) {
+            return false;
+        }
+
         // Build the GCS prefix for this video: videos/{userId}/{videoId}/
         Long userId = video.getUser().getId();
         String prefix = String.format("videos/%d/%s/", userId, video.getId());
 
-        log.info("[REPAIR] Searching GCS for video {}: prefix={}", video.getId(), prefix);
+        log.info("[REPAIR] Searching GCS for video {} (status={}): prefix={}",
+                video.getId(), video.getStatus(), prefix);
 
         String gcsUri = gcsService.findVideoFile(prefix);
 
@@ -79,6 +89,7 @@ public class VideoRepairJob {
         // Update the video record
         video.setGcsUri(gcsUri);
         video.setStatus(VideoStatus.COMPLETED);
+        video.setErrorMessage(null); // Clear the timeout error message
 
         try {
             var signedUrl = gcsService.generateSignedUrl(gcsUri);
@@ -94,3 +105,4 @@ public class VideoRepairJob {
         return true;
     }
 }
+

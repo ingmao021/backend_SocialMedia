@@ -51,7 +51,7 @@ app:
   vertex:
     veo-model-id: ${VEO_MODEL_ID:veo-3.1-lite-generate-preview}
     polling-interval-seconds: 15
-    job-timeout-minutes: 10
+    job-timeout-minutes: 20
   signed-url:
     ttl-days: 7
     avatar-ttl-days: 30
