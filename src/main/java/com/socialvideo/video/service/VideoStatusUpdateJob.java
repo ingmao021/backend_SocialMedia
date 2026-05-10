@@ -78,13 +78,14 @@ public class VideoStatusUpdateJob {
             return;
         }
 
-        if (response.response() != null && !response.response().isEmpty()) {
-            log.info("Video {} done with response data, marking as COMPLETED. Response: {}",
-                    video.getId(), response.response().toString());
-            persister.markAsCompleted(video, response);
-        } else {
-            log.error("Video {} done but no response data. Full response: {}", video.getId(), response);
-            persister.markAsFailed(video, "Vertex AI completó pero no devolvió datos en 'response'");
-        }
+        // Operation completed successfully — always delegate to markAsCompleted.
+        // When using storageUri, Vertex AI saves the video directly to GCS and the
+        // response field may be null/empty. The persister has fallback logic to
+        // locate the file in GCS by prefix search.
+        log.info("Video {} done successfully. Response data present: {}, raw response: {}",
+                video.getId(),
+                response.response() != null && !response.response().isNull() && !response.response().isEmpty(),
+                response.response());
+        persister.markAsCompleted(video, response);
     }
 }
