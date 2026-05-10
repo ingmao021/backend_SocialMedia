@@ -52,6 +52,25 @@ public class GcsService {
     }
 
     /**
+     * Finds the first .mp4 file under a given prefix in the bucket.
+     * Used to locate video files for videos stuck in PROCESSING state.
+     *
+     * @param prefix e.g. "videos/1/uuid-here/"
+     * @return gs:// URI of the .mp4 file, or null if not found
+     */
+    public String findVideoFile(String prefix) {
+        String bucketName = appProperties.getGcp().getBucket();
+        var blobs = storage.list(bucketName, Storage.BlobListOption.prefix(prefix));
+
+        for (var blob : blobs.iterateAll()) {
+            if (blob.getName().endsWith(".mp4")) {
+                return "gs://" + bucketName + "/" + blob.getName();
+            }
+        }
+        return null;
+    }
+
+    /**
      * Generates a Signed URL V4 for a GCS object (videos).
      * TTL: app.signed-url.ttl-days (default 7 days).
      *
