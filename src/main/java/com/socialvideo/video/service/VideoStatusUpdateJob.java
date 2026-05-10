@@ -33,7 +33,7 @@ public class VideoStatusUpdateJob {
             return;
         }
 
-        log.debug("Polling {} videos in PROCESSING state", processingVideos.size());
+        log.info("Polling {} videos in PROCESSING state", processingVideos.size());
 
         for (Video video : processingVideos) {
             try {
@@ -60,10 +60,15 @@ public class VideoStatusUpdateJob {
         }
 
         // HTTP call to Vertex AI — outside any transaction
+        log.info("Polling Vertex AI for video {}: operation={}", video.getId(), video.getVertexOperationName());
         OperationResponse response = vertexAiClient.getOperation(video.getVertexOperationName());
+        log.info("Vertex AI response for video {}: done={}, hasResponse={}, hasError={}",
+                video.getId(), response.done(),
+                response.response() != null,
+                response.error() != null);
 
         if (!Boolean.TRUE.equals(response.done())) {
-            // Still processing
+            log.info("Video {} still processing in Vertex AI", video.getId());
             return;
         }
 
@@ -74,8 +79,11 @@ public class VideoStatusUpdateJob {
         }
 
         if (response.response() != null && !response.response().isEmpty()) {
+            log.info("Video {} done with response data, marking as COMPLETED. Response: {}",
+                    video.getId(), response.response().toString());
             persister.markAsCompleted(video, response);
         } else {
+            log.error("Video {} done but no response data. Full response: {}", video.getId(), response);
             persister.markAsFailed(video, "Vertex AI completó pero no devolvió datos en 'response'");
         }
     }
