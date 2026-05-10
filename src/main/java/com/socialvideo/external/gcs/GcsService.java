@@ -2,6 +2,8 @@ package com.socialvideo.external.gcs;
 
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
+import com.google.cloud.storage.Bucket;
+import com.google.cloud.storage.Cors;
 import com.google.cloud.storage.HttpMethod;
 import com.google.cloud.storage.Storage;
 import com.socialvideo.config.AppProperties;
@@ -10,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.net.URL;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -19,6 +22,34 @@ public class GcsService {
 
     private final Storage storage;
     private final AppProperties appProperties;
+
+    /**
+     * Configures CORS on the GCS bucket so browsers can load videos
+     * directly via Signed URLs from any frontend origin.
+     * Uses wildcard origin ("*") because Signed URLs are already authenticated.
+     */
+    public void configureBucketCors() {
+        String bucketName = appProperties.getGcp().getBucket();
+
+        Cors cors = Cors.newBuilder()
+                .setOrigins(List.of(Cors.Origin.of("*")))
+                .setMethods(List.of(HttpMethod.GET, HttpMethod.HEAD))
+                .setResponseHeaders(List.of(
+                        "Content-Type", "Content-Length", "Content-Range",
+                        "Accept-Ranges", "Range"
+                ))
+                .setMaxAgeSeconds(3600)
+                .build();
+
+        Bucket bucket = storage.get(bucketName);
+        if (bucket == null) {
+            log.error("GCS bucket not found: {}", bucketName);
+            return;
+        }
+
+        bucket.toBuilder().setCors(List.of(cors)).build().update();
+        log.info("CORS configured on GCS bucket: {}", bucketName);
+    }
 
     /**
      * Generates a Signed URL V4 for a GCS object (videos).

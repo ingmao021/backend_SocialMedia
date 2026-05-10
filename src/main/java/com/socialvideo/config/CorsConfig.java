@@ -20,20 +20,24 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         
-        // Origins configurados según tu solicitud (desarrollo y producción)
-        config.setAllowedOrigins(Arrays.asList(
-            "http://localhost:5173", 
-            "https://backend-socialmedia-ixsm.onrender.com"
-        ));
+        // Parse origins from environment variable (comma-separated)
+        String originsStr = appProperties.getCors().getAllowedOrigins();
+        List<String> origins = new java.util.ArrayList<>(Arrays.asList(originsStr.split(",")));
+        
+        // Always include localhost for development
+        if (!origins.contains("http://localhost:5173")) {
+            origins.add("http://localhost:5173");
+        }
+        
+        config.setAllowedOrigins(origins);
         
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Cache-Control", "Content-Type"));
         config.setExposedHeaders(List.of("Authorization"));
-        config.setAllowCredentials(true); // Permite credenciales (necesario para algunos flujos)
-        config.setMaxAge(3600L); // Max-Age 3600 segundos (1 hora) para cachear preflight requests
+        config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        // Se aplica a TODOS los endpoints
         source.registerCorsConfiguration("/**", config);
         return source;
     }
