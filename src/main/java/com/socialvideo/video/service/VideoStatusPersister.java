@@ -79,6 +79,8 @@ public class VideoStatusPersister {
                     .plus(appProperties.getSignedUrl().getTtlDays(), ChronoUnit.DAYS));
         } catch (Exception e) {
             log.error("Error generating signed URL for video {}: {}", video.getId(), e.getMessage(), e);
+            // ✅ NO marcar COMPLETED si no tenemos signedUrl válido
+            return;
         }
 
         video.setStatus(VideoStatus.COMPLETED);
