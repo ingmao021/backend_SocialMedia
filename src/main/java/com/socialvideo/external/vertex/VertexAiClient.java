@@ -111,13 +111,78 @@ public class VertexAiClient {
     /**
      * Polls the operation status.
      * <p>
-     * The operation name from predictLongRunning has the format:
-     * projects/{p}/locations/{l}/publishers/google/models/{m}/operations/{opId}
-     * <p>
-     * But the standard LRO polling endpoint is:
-     * projects/{p}/locations/{l}/operations/{opId}
+     * Publisher model operations (Veo, Imagen) use a UUID-based operation ID and
+     * must be polled via fetchPredictOperation (POST). The standard LRO endpoint
+     * (GET /operations/{id}) only accepts numeric Long IDs and will return 400
+     * INVALID_ARGUMENT for UUID-based operation IDs.
      */
     public OperationResponse getOperation(String operationName) {
+        if (operationName.contains("/publishers/google/models/")) {
+            return fetchPredictOperation(operationName);
+        }
+        return getStandardOperation(operationName);
+    }
+
+    /**
+     * Polls a publisher model operation via fetchPredictOperation.
+     * Endpoint: POST /v1/{modelPath}:fetchPredictOperation
+     * Body: {"operationName": "{full operation name}"}
+     */
+    private OperationResponse fetchPredictOperation(String operationName) {
+        try {
+            googleCredentials.refreshIfExpired();
+            String accessToken = googleCredentials.getAccessToken().getTokenValue();
+
+            String location = appProperties.getGcp().getLocation();
+
+            // Extract model path (everything before /operations/{id})
+            int operationsIdx = operationName.lastIndexOf("/operations/");
+            String modelPath = operationsIdx >= 0
+                    ? operationName.substring(0, operationsIdx)
+                    : operationName;
+
+            String url = String.format(
+                    "https://%s-aiplatform.googleapis.com/v1/%s:fetchPredictOperation",
+                    location, modelPath);
+
+            String body = objectMapper.writeValueAsString(Map.of("operationName", operationName));
+
+            log.info("Polling Vertex AI publisher operation via fetchPredictOperation: url={}", url);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Authorization", "Bearer " + accessToken)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 404) {
+                log.error("Vertex AI publisher operation not found (404): {}. Treating as failed.", operationName);
+                return new OperationResponse(operationName, true, null,
+                        new OperationResponse.OperationError(404, "Operation not found: " + operationName));
+            }
+
+            if (response.statusCode() != 200) {
+                log.error("Vertex AI fetchPredictOperation failed: status={} body={}", response.statusCode(), response.body());
+                throw new VideoGenerationException(
+                        "Error consultando operación de Vertex AI: status=" + response.statusCode());
+            }
+
+            return objectMapper.readValue(response.body(), OperationResponse.class);
+
+        } catch (IOException | InterruptedException e) {
+            log.error("Error polling Vertex AI publisher operation: {}", operationName, e);
+            throw new VideoGenerationException("Error comunicándose con Vertex AI al consultar operación", e);
+        }
+    }
+
+    /**
+     * Polls a standard LRO operation (numeric Long ID).
+     * Endpoint: GET /v1/projects/{p}/locations/{l}/operations/{longId}
+     */
+    private OperationResponse getStandardOperation(String operationName) {
         try {
             googleCredentials.refreshIfExpired();
             String accessToken = googleCredentials.getAccessToken().getTokenValue();
@@ -125,15 +190,16 @@ public class VertexAiClient {
             String location = appProperties.getGcp().getLocation();
             String projectId = appProperties.getGcp().getProjectId();
 
-            // Extract operation ID from the full operation name
-            String operationId = extractOperationId(operationName);
-            
-            // Build the correct LRO polling URL
+            int idx = operationName.lastIndexOf("/operations/");
+            String operationId = idx >= 0
+                    ? operationName.substring(idx + "/operations/".length())
+                    : operationName;
+
             String url = String.format(
                     "https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/operations/%s",
                     location, projectId, location, operationId);
 
-            log.info("Polling Vertex AI operation: url={}", url);
+            log.info("Polling Vertex AI standard operation: url={}", url);
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
@@ -144,7 +210,6 @@ public class VertexAiClient {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() == 404) {
-                // Operation not found — may have expired or never existed
                 log.error("Vertex AI operation not found (404): {}. Treating as failed.", operationName);
                 return new OperationResponse(operationName, true, null,
                         new OperationResponse.OperationError(404, "Operation not found: " + operationId));
@@ -159,22 +224,8 @@ public class VertexAiClient {
             return objectMapper.readValue(response.body(), OperationResponse.class);
 
         } catch (IOException | InterruptedException e) {
-            log.error("Error polling Vertex AI operation: {}", operationName, e);
+            log.error("Error polling Vertex AI standard operation: {}", operationName, e);
             throw new VideoGenerationException("Error comunicándose con Vertex AI al consultar operación", e);
         }
-    }
-
-    /**
-     * Extracts the operation ID from a full Vertex AI operation name.
-     * Input:  "projects/.../locations/.../publishers/google/models/.../operations/abc-123"
-     * Output: "abc-123"
-     */
-    private String extractOperationId(String operationName) {
-        int idx = operationName.lastIndexOf("/operations/");
-        if (idx >= 0) {
-            return operationName.substring(idx + "/operations/".length());
-        }
-        // Fallback: assume it's already just the ID
-        return operationName;
     }
 }

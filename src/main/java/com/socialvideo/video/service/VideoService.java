@@ -82,7 +82,7 @@ public class VideoService {
         // Regenerate signed URL if expired or close to expiring
         refreshSignedUrlIfNeeded(video);
 
-        return new VideoStatusResponse(video.getStatus(), video.getSignedUrl());
+        return new VideoStatusResponse(video.getStatus(), video.getSignedUrl(), video.getErrorMessage());
     }
 
     @Transactional

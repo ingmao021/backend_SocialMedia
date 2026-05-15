@@ -4,5 +4,6 @@ import com.socialvideo.video.entity.VideoStatus;
 
 public record VideoStatusResponse(
         VideoStatus status,
-        String signedUrl
+        String signedUrl,
+        String errorMessage
 ) {}
