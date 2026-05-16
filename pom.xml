@@ -110,6 +110,13 @@
             <version>2.24.0</version>
         </dependency>
 
+        <!-- YouTube Data API v3 client -->
+        <dependency>
+            <groupId>com.google.apis</groupId>
+            <artifactId>google-api-services-youtube</artifactId>
+            <version>v3-rev20240514-2.0.0</version>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
