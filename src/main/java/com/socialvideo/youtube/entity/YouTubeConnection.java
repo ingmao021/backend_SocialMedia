@@ -1,18 +1,11 @@
 package com.socialvideo.youtube.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import com.socialvideo.user.entity.User;
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -34,12 +27,12 @@ public class YouTubeConnection {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "id", columnDefinition = "uuid", updatable = false, nullable = false)
     private UUID id;
 
-    /** FK a {@code users.id}. UNIQUE: una conexión por usuario. */
-    @Column(name = "user_id", nullable = false, unique = true)
-    private Long userId;
+    /** FK a {@code users}. UNIQUE: una conexión por usuario. */
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    private User user;
 
     /** ID único del usuario en Google (claim {@code sub} del ID token). */
     @Column(name = "google_sub", nullable = false, length = 255)
@@ -49,12 +42,12 @@ public class YouTubeConnection {
     @Column(name = "youtube_channel_id", nullable = false, length = 255)
     private String youtubeChannelId;
 
-    /** Nombre del canal — se muestra al usuario en el dropdown del frontend. */
+    /** Nombre del canal — se muestra al usuario en el frontend. */
     @Column(name = "youtube_channel_title", nullable = false, length = 255)
     private String youtubeChannelTitle;
 
     /** Refresh token cifrado (Base64 del ciphertext AES-GCM). */
-    @Column(name = "refresh_token_cipher", nullable = false, columnDefinition = "text")
+    @Column(name = "refresh_token_cipher", nullable = false, columnDefinition = "TEXT")
     private String refreshTokenCipher;
 
     /** IV (vector de inicialización) del cifrado AES-GCM, en Base64. */
@@ -62,23 +55,22 @@ public class YouTubeConnection {
     private String refreshTokenIv;
 
     /** Scopes concedidos realmente por el usuario, separados por espacio. */
-    @Column(name = "scopes", nullable = false, columnDefinition = "text")
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String scopes;
 
-    @Column(name = "connected_at", nullable = false)
-    private OffsetDateTime connectedAt;
+    @CreationTimestamp
+    @Column(name = "connected_at", nullable = false, updatable = false)
+    private Instant connectedAt;
 
     /** Última vez que se renovó el access_token con este refresh_token. */
     @Column(name = "last_refreshed_at")
-    private OffsetDateTime lastRefreshedAt;
+    private Instant lastRefreshedAt;
 
     /** Marcado en soft-delete cuando el usuario desconecta o YouTube revoca. */
     @Column(name = "revoked_at")
-    private OffsetDateTime revokedAt;
+    private Instant revokedAt;
 
-    /**
-     * Conveniencia: si {@code revokedAt} es null, la conexión está activa.
-     */
+    /** True si la conexión sigue activa (no fue revocada). */
     public boolean isActive() {
         return revokedAt == null;
     }

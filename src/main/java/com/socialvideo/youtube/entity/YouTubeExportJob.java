@@ -1,21 +1,13 @@
 package com.socialvideo.youtube.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import com.socialvideo.user.entity.User;
+import com.socialvideo.video.entity.Video;
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -37,47 +29,49 @@ public class YouTubeExportJob {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "id", columnDefinition = "uuid", updatable = false, nullable = false)
     private UUID id;
 
-    /** FK a {@code users.id}. Propietario del job. */
-    @Column(name = "user_id", nullable = false)
-    private Long userId;
+    /** FK a {@code users}. Propietario del job. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
-    /** FK a {@code videos.id}. El video a subir. */
-    @Column(name = "video_id", columnDefinition = "uuid", nullable = false)
-    private UUID videoId;
+    /** FK a {@code videos}. El video a subir. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "video_id", nullable = false)
+    private Video video;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
+    @Column(nullable = false, length = 20)
     private YouTubeExportStatus status;
 
     /** Título del video en YouTube. Máximo 100 caracteres (límite de YouTube). */
-    @Column(name = "title", nullable = false, length = 100)
+    @Column(nullable = false, length = 100)
     private String title;
 
     /** Descripción del video. Máximo 5000 caracteres (límite de YouTube). */
-    @Column(name = "description", columnDefinition = "text")
+    @Column(columnDefinition = "TEXT")
     private String description;
 
     /** Tags separados por coma. Máximo 500 caracteres totales (límite de YouTube). */
-    @Column(name = "tags", columnDefinition = "text")
+    @Column(columnDefinition = "TEXT")
     private String tags;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "privacy_status", nullable = false, length = 20)
     private YouTubePrivacyStatus privacyStatus;
 
-    /** ID del video en YouTube, llenado cuando {@code status = COMPLETED}. */
+    /** ID del video en YouTube. Se llena cuando {@code status = COMPLETED}. */
     @Column(name = "youtube_video_id", length = 32)
     private String youtubeVideoId;
 
-    /** URL pública del video en YouTube. Forma: https://youtube.com/watch?v=... */
-    @Column(name = "youtube_video_url", columnDefinition = "text")
+    /** URL pública del video. Forma: https://youtube.com/watch?v=... */
+    @Column(name = "youtube_video_url", columnDefinition = "TEXT")
     private String youtubeVideoUrl;
 
     @Column(name = "bytes_uploaded", nullable = false)
-    private Long bytesUploaded;
+    @Builder.Default
+    private Long bytesUploaded = 0L;
 
     /** Tamaño total del archivo en GCS. Null hasta que el worker lo conoce. */
     @Column(name = "bytes_total")
@@ -87,29 +81,26 @@ public class YouTubeExportJob {
     @Column(name = "error_code", length = 64)
     private String errorCode;
 
-    @Column(name = "error_message", columnDefinition = "text")
+    @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
     @Column(name = "attempt_count", nullable = false)
-    private Integer attemptCount;
+    @Builder.Default
+    private Integer attemptCount = 0;
 
-    @Column(name = "created_at", nullable = false)
-    private OffsetDateTime createdAt;
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
 
     /** Cuándo el worker empezó a procesar este job. */
     @Column(name = "started_at")
-    private OffsetDateTime startedAt;
+    private Instant startedAt;
 
     /** Cuándo el job terminó (éxito o fallo definitivo). */
     @Column(name = "completed_at")
-    private OffsetDateTime completedAt;
+    private Instant completedAt;
 
+    @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
-    private OffsetDateTime updatedAt;
-
-    /** Hook JPA: cualquier UPDATE refresca el campo {@code updatedAt}. */
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = OffsetDateTime.now();
-    }
+    private Instant updatedAt;
 }
