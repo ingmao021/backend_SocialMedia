@@ -31,6 +31,21 @@ app:
   video:
     max-completed: 2
 
+  youtube:
+    client-id: fake-youtube-client-id.apps.googleusercontent.com
+    client-secret: fake-youtube-client-secret
+    redirect-uri: http://localhost:8080/api/youtube/oauth/callback
+    upload-chunk-size-bytes: 10485760
+    upload-timeout-minutes: 30
+    oauth-state-ttl-seconds: 600
+    verified: false
+    crypto:
+      # 32 bytes (256 bits) en Base64 - clave dummy SOLO para tests.
+      # Decodifica a 32 bytes de ceros. Es criptográficamente "débil" en
+      # producción, pero en tests no importa porque solo verificamos que
+      # encrypt/decrypt funcionan, no la fortaleza de la clave.
+      token-encryption-key: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+
 logging:
   level:
     root: WARN
