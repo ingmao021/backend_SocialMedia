@@ -1,5 +1,6 @@
 package com.socialvideo.config;
 
+
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -18,6 +19,25 @@ public class AppProperties {
     private Vertex vertex = new Vertex();
     private SignedUrl signedUrl = new SignedUrl();
     private Video video = new Video();
+    private Youtube youtube = new Youtube();
+    private Crypto crypto = new Crypto();
+
+    @Getter @Setter
+    public static class Youtube {
+        private String clientId;
+        private String clientSecret;
+        private String redirectUri;
+        private String scopes = "...";
+        private int uploadChunkSizeBytes = 10 * 1024 * 1024;
+        private int uploadTimeoutMinutes = 30;
+        private int oauthStateTtlSeconds = 600;
+        private boolean verified = false;
+    }
+
+    @Getter @Setter
+    public static class Crypto {
+        private String tokenEncryptionKey;
+    }
 
     @Getter @Setter
     public static class Cors {
@@ -61,3 +81,5 @@ public class AppProperties {
         private int maxCompleted = 2;
     }
 }
+
+

@@ -58,6 +58,19 @@ app:
   video:
     max-completed: 9999  # Quota desactivada temporalmente
 
+  youtube:
+    client-id: ${YOUTUBE_CLIENT_ID}                #
+    client-secret: ${YOUTUBE_CLIENT_SECRET}
+    redirect-uri: ${YOUTUBE_REDIRECT_URI}
+    scopes: https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/yt-analytics.readonly
+    upload-chunk-size-bytes: 10485760
+    upload-timeout-minutes: 30
+    oauth-state-ttl-seconds: 600
+    verified: ${YOUTUBE_APP_VERIFIED:false}
+
+  crypto:
+    token-encryption-key: ${TOKEN_ENCRYPTION_KEY}
+
 logging:
   level:
     com.socialvideo: INFO
